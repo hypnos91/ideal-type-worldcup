@@ -1,0 +1,54 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #fff7f3;
+  --fg: #1d1626;
+  --card: #ffffff;
+  --line: #f0e4de;
+  --muted: #7a6f80;
+  --accent: #ff4d6d;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #14101a;
+    --fg: #f4eef7;
+    --card: #221b2b;
+    --line: #322839;
+    --muted: #a89fb0;
+    --accent: #ff5c7a;
+  }
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --font-sans: "Pretendard", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+  --animate-pop: pop 0.3s ease-out;
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  word-break: keep-all; /* 한글을 단어 중간에서 줄바꿈하지 않는다 */
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
