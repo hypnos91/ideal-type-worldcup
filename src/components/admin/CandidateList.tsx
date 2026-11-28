@@ -1,0 +1,342 @@
+"use client";
+
+import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import Link from "next/link";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { AdminCandidate } from "@/lib/api-types";
+import { api } from "@/lib/client-api";
+import { parseCandidate } from "@/lib/validation";
+import { useAdminApiError } from "./AdminShell";
+import { PHOTO_ACCEPT, isPhotoFile } from "@/lib/image";
+import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
+import { LocalPreview, usePastedImage } from "./photoInput";
+import PhotoLightbox from "./PhotoLightbox";
+import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
+
+// 고정 열: 표 바탕색을 칠해 밑으로 지나가는 열이 비치지 않게 하고, 가로로 밀렸을 때만 경계 그림자
+const PIN_BASE = "sticky z-10 bg-white dark:bg-neutral-900 transition-shadow";
+const PIN_LEFT = `${PIN_BASE} left-0 group-data-[left=true]/scroll:shadow-[10px_0_12px_-10px_rgba(0,0,0,0.35)]`;
+const PIN_RIGHT = `${PIN_BASE} right-0 group-data-[right=true]/scroll:shadow-[-10px_0_12px_-10px_rgba(0,0,0,0.35)]`;
+const PIN_ROW_HOVER = "group-hover/row:bg-neutral-50 dark:group-hover/row:bg-neutral-800";
+
+type Filter = "all" | "active" | "hidden" | "noPhoto";
+// '사진 필요': 실제 사진 대신 이름 카드로 올라간 후보만 모아 본다(2026-11-28 사용자 지시)
+const FILTERS: { key: Filter; label: string; match: (c: AdminCandidate) => boolean }[] = [
+  { key: "all", label: "전체", match: () => true },
+  { key: "active", label: "표시 중", match: (c) => c.active },
+  { key: "hidden", label: "숨김", match: (c) => !c.active },
+  { key: "noPhoto", label: "사진 필요", match: (c) => c.photoPending },
+];
+
+export default function CandidateList() {
+  const onApiError = useAdminApiError();
+  const [list, setList] = useState<AdminCandidate[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState<Filter>("all");
+  const [editing, setEditing] = useState<AdminCandidate | null>(null);
+  const [viewing, setViewing] = useState<AdminCandidate | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setEdges((e) => (e.left === left && e.right === right ? e : { left, right }));
+  }, []);
+  // 창 크기가 바뀌거나 목록이 바뀌어 넘침 여부가 달라지면 다시 잰다
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(updateEdges);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [updateEdges]);
+
+  useEffect(() => {
+    let alive = true;
+    api<AdminCandidate[]>("/api/admin/candidates").then(
+      (data) => alive && setList(data),
+      (e) => alive && setError(onApiError(e)),
+    );
+    return () => {
+      alive = false;
+    };
+  }, [onApiError]);
+
+  const replace = (c: AdminCandidate) => setList((l) => l?.map((x) => (x.id === c.id ? c : x)) ?? null);
+
+  const toggle = async (c: AdminCandidate) => {
+    const parsed = parseCandidate(toFields(c));
+    if (!parsed.ok) return setError(parsed.error);
+    setBusyId(c.id);
+    try {
+      replace(await api<AdminCandidate>("/api/admin/candidates", { method: "PUT", body: { id: c.id, active: !c.active, ...parsed.value } }));
+    } catch (e) {
+      setError(onApiError(e));
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const all = list ?? [];
+  const activeCount = all.filter((c) => c.active).length;
+  const q = search.trim().toLowerCase();
+  const rows = all.filter(
+    (c) =>
+      FILTERS.find((f) => f.key === filter)!.match(c) &&
+      (!q || [c.name, c.groupName ?? "", c.title, c.nationality].some((v) => v.toLowerCase().includes(q))),
+  );
+
+  return (
+    <>
+      <PageHeader
+        title="후보 목록"
+        description={`표시 중 ${activeCount}명 · 전체 ${all.length}명 — 32강은 32명, 64강은 64명, 128강은 128명이 필요해요.`}
+        actions={
+          <Link href="/admin/upload" className={buttonClass()}>
+            <Plus weight="bold" />
+            후보 올리기
+          </Link>
+        }
+      />
+
+      {error && <Notice tone="error">{error}</Notice>}
+
+      {/* 툴바: 검색(filled) → 상태 필터 */}
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="flex h-8 w-full items-center gap-1.5 rounded-lg bg-neutral-100/70 px-2.5 sm:w-[300px] dark:bg-neutral-800/70">
+          <MagnifyingGlass className="size-4 shrink-0 text-neutral-500" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="이름, 소속 그룹, 타이틀, 국적 검색"
+            className="min-w-0 flex-1 bg-transparent text-sm outline-none placeholder:text-neutral-500"
+          />
+        </label>
+        <div className="flex gap-0.5">
+          {FILTERS.map((f) => (
+            <button
+              key={f.key}
+              onClick={() => setFilter(f.key)}
+              aria-pressed={filter === f.key}
+              className={cn(
+                "h-8 rounded-md px-3 text-sm font-medium transition-colors",
+                filter === f.key ? "bg-neutral-100 text-neutral-900 dark:bg-neutral-800 dark:text-neutral-50" : "text-neutral-500 hover:bg-neutral-100 dark:hover:bg-neutral-800",
+              )}
+            >
+              {f.label}
+              <span
+                className={cn(
+                  "ml-1.5 tabular-nums",
+                  f.key === "noPhoto" && all.some(f.match) ? "rounded bg-red-600/15 px-1.5 text-red-600 dark:text-red-400" : "text-neutral-400",
+                )}
+              >
+                {all.filter(f.match).length}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* 표: 모서리 0 · 좌우 테두리 없음 · 가로선만, 머리글은 아래 선 하나.
+          사진+이름 열은 왼쪽, 숨기기·수정 열은 오른쪽에 고정(2026-11-28 사용자 지시). 가로로 밀리면 고정 열 경계에 그림자 */}
+      <div
+        ref={scrollRef}
+        onScroll={updateEdges}
+        data-left={edges.left}
+        data-right={edges.right}
+        className="group/scroll w-full overflow-x-auto border-y border-neutral-200 dark:border-neutral-800"
+      >
+        <table className="w-full min-w-[880px] border-separate border-spacing-0 text-left text-sm">
+          <thead>
+            <tr>
+              {["이름", "소속 그룹", "키", "국적", "타이틀", "나이", "상태", "등록일", ""].map((h, i, all) => (
+                <th
+                  key={i}
+                  className={cn(
+                    "h-10 border-b border-neutral-200 px-3 align-middle text-xs font-medium whitespace-nowrap text-neutral-500 dark:border-neutral-800",
+                    (h === "키" || h === "나이") && "text-right",
+                    i === 0 && cn(PIN_LEFT, "pl-0"),
+                    i === all.length - 1 && cn(PIN_RIGHT, "pr-0"),
+                  )}
+                >
+                  {h}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody className="[&_tr:last-child]:border-0">
+            {list === null ? (
+              <EmptyRow>불러오는 중…</EmptyRow>
+            ) : rows.length === 0 ? (
+              <EmptyRow>{all.length === 0 ? "아직 등록된 후보가 없어요. ‘후보 올리기’에서 추가해 주세요." : "조건에 맞는 후보가 없어요."}</EmptyRow>
+            ) : (
+              rows.map((c) => (
+                <tr
+                  key={c.id}
+                  className={cn(
+                    "group/row hover:bg-neutral-50 dark:hover:bg-neutral-800 [&>td]:border-b [&>td]:border-neutral-200 dark:[&>td]:border-neutral-800",
+                    !c.active && "text-neutral-400",
+                  )}
+                >
+                  <td className={cn(PIN_LEFT, PIN_ROW_HOVER, "py-2 pr-3 align-middle")}>
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setViewing(c)}
+                        aria-label={`${c.name} 사진 크게 보기`}
+                        className="shrink-0 cursor-zoom-in rounded-md transition hover:ring-2 hover:ring-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 줄인 사진 */}
+                        <img src={c.imageUrl} alt="" className={cn("h-12 w-9 rounded-md object-cover", !c.active && "opacity-50")} />
+                      </button>
+                      <span className="font-medium whitespace-nowrap">{c.name}</span>
+                    </div>
+                  </td>
+                  <td className="px-3 align-middle whitespace-nowrap">{c.groupName ?? <span className="text-neutral-400">—</span>}</td>
+                  <td className="px-3 text-right align-middle tabular-nums">{c.heightCm}cm</td>
+                  <td className="px-3 align-middle whitespace-nowrap">{c.nationality}</td>
+                  <td className="px-3 align-middle whitespace-nowrap">{c.title}</td>
+                  <td className="px-3 text-right align-middle tabular-nums">{c.age}세</td>
+                  <td className="px-3 align-middle">
+                    <div className="flex flex-wrap gap-1">
+                      {c.active ? <Badge tone="brand">표시 중</Badge> : <Badge tone="neutral">숨김</Badge>}
+                      {c.photoPending && <Badge tone="warn">사진 필요</Badge>}
+                    </div>
+                  </td>
+                  <td className="px-3 align-middle whitespace-nowrap text-neutral-500 tabular-nums">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</td>
+                  <td className={cn(PIN_RIGHT, PIN_ROW_HOVER, "py-2 pl-3 text-right align-middle whitespace-nowrap")}>
+                    <div className="flex justify-end gap-1">
+                      <Button variant="ghost" size="sm" disabled={busyId === c.id} onClick={() => void toggle(c)}>
+                        {c.active ? "숨기기" : "다시 표시"}
+                      </Button>
+                      <Button variant="tonal" size="sm" onClick={() => setEditing(c)}>
+                        수정
+                      </Button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-xs text-neutral-500">숨긴 후보는 새 월드컵에 나오지 않지만, 이미 끝난 월드컵 기록에는 그대로 남아요.</p>
+
+      {viewing && <PhotoLightbox candidate={viewing} onClose={() => setViewing(null)} />}
+
+      {editing && (
+        <EditDialog
+          candidate={editing}
+          onClose={() => setEditing(null)}
+          onSaved={(c) => {
+            replace(c);
+            setEditing(null);
+          }}
+        />
+      )}
+    </>
+  );
+}
+
+function EmptyRow({ children }: { children: React.ReactNode }) {
+  return (
+    <tr>
+      <td colSpan={9} className="py-10 text-center text-sm text-neutral-500">
+        {children}
+      </td>
+    </tr>
+  );
+}
+
+function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate; onClose: () => void; onSaved: (c: AdminCandidate) => void }) {
+  const onApiError = useAdminApiError();
+  const fileInput = useRef<HTMLInputElement>(null);
+  const [fields, setFields] = useState<CandidateFields>(() => toFields(candidate));
+  const [photo, setPhoto] = useState<{ file: File; preview: string } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => () => void (photo && URL.revokeObjectURL(photo.preview)), [photo]);
+
+  const choose = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!isPhotoFile(f)) return setError("이미지 파일만 쓸 수 있어요");
+    setError(null);
+    setPhoto({ file: f, preview: URL.createObjectURL(f) });
+  };
+  // 클립보드에 복사한 이미지 붙여넣기(2026-11-28 사용자 지시)
+  usePastedImage(choose, !busy);
+
+  const save = async () => {
+    const parsed = parseCandidate(fields);
+    if (!parsed.ok) return setError(parsed.error);
+    setBusy(true);
+    try {
+      const uploaded = photo ? await uploadPhoto(photo.file) : undefined;
+      onSaved(
+        await api<AdminCandidate>("/api/admin/candidates", {
+          method: "PUT",
+          body: { id: candidate.id, active: candidate.active, imageUrl: uploaded?.url, face: uploaded?.face, ...parsed.value },
+        }),
+      );
+    } catch (e) {
+      setError(onApiError(e));
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Dialog
+      title="후보 수정"
+      onClose={onClose}
+      footer={
+        <>
+          <Button variant="tonal" onClick={onClose}>
+            취소
+          </Button>
+          <Button onClick={() => void save()} disabled={busy}>
+            {busy ? "저장 중…" : "저장"}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-4 pb-2">
+        <div
+          className="flex items-end justify-center gap-3"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            choose(e.dataTransfer.files[0]);
+          }}
+        >
+          <LocalPreview src={photo?.preview ?? candidate.imageUrl} name={photo?.file.name} className="h-40 w-30 rounded-xl" />
+          <div className="flex flex-col items-start gap-1.5">
+            <Button variant="outlined" size="sm" onClick={() => fileInput.current?.click()}>
+              사진 바꾸기
+            </Button>
+            <span className="text-xs text-neutral-500">
+              {photo ? "저장하면 WebP 로 압축돼요" : "복사한 이미지는 ⌘/Ctrl+V 로 붙여넣기"}
+            </span>
+          </div>
+          <input
+            ref={fileInput}
+            type="file"
+            accept={PHOTO_ACCEPT}
+            className="hidden"
+            onChange={(e) => {
+              choose(e.target.files?.[0]);
+              e.target.value = "";
+            }}
+          />
+        </div>
+        <CandidateFieldsForm value={fields} onChange={setFields} />
+        {error && <Notice tone="error">{error}</Notice>}
+      </div>
+    </Dialog>
+  );
+}

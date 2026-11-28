@@ -1,0 +1,101 @@
+@import "tailwindcss";
+
+/* 기본 다크 모드(2026-11-28 사용자 지시): 시스템 설정과 상관없이 어두운 테마. <html class="dark"> 로 dark: 변형도 켠다. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: dark;
+  --bg: #0f0c14;
+  --fg: #f4eef7;
+  --card: #1c1724;
+  --line: #2f2838;
+  --muted: #a89fb0;
+  --accent: #ff5c7a;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-fg: var(--fg);
+  --color-card: var(--card);
+  --color-line: var(--line);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
+  --animate-pop: pop 0.3s ease-out;
+  --animate-fade-in: fade-in 1.2s ease-out;
+  --animate-confetti: confetti 1.8s cubic-bezier(0.2, 0.7, 0.3, 1) both;
+  --animate-marquee-left: marquee-left 160s linear infinite;
+  --animate-marquee-right: marquee-right 160s linear infinite;
+}
+
+/* 이모지 컨페티: 바깥으로 튀어 나갔다가(60%) 아래로 떨어지며 사라진다. --dx/--dy/--rot 은 조각마다 다르다. */
+@keyframes confetti {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(calc(var(--rot) * 0.7));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 90px)) scale(0.9) rotate(var(--rot));
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes pop {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* 장식(컨페티 등)이 화면 밖으로 나가도 페이지가 가로로 넓어지지 않게(모바일에서 축소·가로 스크롤이 생기던 문제).
+   clip 은 스크롤 영역을 만들지 않아 sticky 요소에 영향이 없다 */
+html,
+body {
+  overflow-x: clip;
+}
+
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  word-break: keep-all; /* 한글을 단어 중간에서 줄바꿈하지 않는다 */
+}
+
+button:not(:disabled) {
+  cursor: pointer;
+}
