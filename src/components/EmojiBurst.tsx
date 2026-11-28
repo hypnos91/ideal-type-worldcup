@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 // 최종 1인 사진 주위로 터지는 이모지 컨페티(2026-11-28 사용자 지시). 라이브러리 없이 CSS 애니메이션으로만.
 // 조각마다 사진 테두리의 한 점에서 출발해 바깥으로 튀어 나간 뒤 아래로 떨어지며 사라진다.
@@ -42,6 +42,13 @@ function makePieces(count: number, seed: number, delayBase: number): Piece[] {
 export default function EmojiBurst({ children }: { children: React.ReactNode }) {
   const [round, setRound] = useState(1);
   const [pieces, setPieces] = useState<Piece[]>(() => [...makePieces(28, 1, 0), ...makePieces(14, 2, 550)]);
+
+  // 다 떨어진 조각은 화면에서 치운다(가장 늦은 조각: 지연 550+180ms + 길이 최대 2300ms)
+  useEffect(() => {
+    if (pieces.length === 0) return;
+    const t = setTimeout(() => setPieces([]), 3200);
+    return () => clearTimeout(t);
+  }, [pieces]);
 
   const replay = () => {
     const next = round + 2;

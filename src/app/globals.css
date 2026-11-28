@@ -82,6 +82,13 @@
   }
 }
 
+/* 장식(컨페티 등)이 화면 밖으로 나가도 페이지가 가로로 넓어지지 않게(모바일에서 축소·가로 스크롤이 생기던 문제).
+   clip 은 스크롤 영역을 만들지 않아 sticky 요소에 영향이 없다 */
+html,
+body {
+  overflow-x: clip;
+}
+
 body {
   background: var(--bg);
   color: var(--fg);

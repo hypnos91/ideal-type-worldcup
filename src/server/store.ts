@@ -187,12 +187,13 @@ export async function listFinishedGames(db: Db, playerId: string): Promise<Game[
 }
 
 /**
- * '나의 최종 1인' 목록에서 기록 하나를 지운다(2026-11-28 사용자 지시). 목록에서만 빠지고, 그 판에 나온 후보는
- * 계속 제외된다(이미 본 후보가 다시 나오지 않게). 본인 기록이 아니면 false.
+ * '나의 최종 1인' 기록 하나를 지운다. 목록에서 빠지고, 그 판에 나온 후보도 '본 후보'에서 빠져 다시 나올 수 있다
+ * (2026-11-28 사용자 지시: "지우면 내가 본 후보 기록도 그만큼 초기화"). 다른 판에서도 본 후보는 그 판 때문에 계속 제외된다.
+ * 본인 기록이 아니면 false.
  */
 export async function hideFinishedGame(db: Db, playerId: string, gameId: string): Promise<boolean> {
   const rows = await db.query(
-    `update games set history_hidden = true where id = $1 and player_id = $2 and status = 'finished' returning id`,
+    `update games set history_hidden = true, counted = false where id = $1 and player_id = $2 and status = 'finished' returning id`,
     [gameId, playerId],
   );
   return rows.length > 0;

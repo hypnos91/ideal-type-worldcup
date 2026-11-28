@@ -139,7 +139,7 @@ describe("월드컵 판", () => {
 });
 
 describe("나의 최종 1인 지우기", () => {
-  it("목록에서만 빠지고 제외는 그대로, 남의 기록은 못 지운다", async () => {
+  it("지우면 목록에서 빠지고 그 판 후보가 다시 나온다, 남의 기록은 못 지운다", async () => {
     await seed(40);
     const p = await player();
     const other = await findOrCreatePlayer(db, { email: "x@y.com", name: "남", age: 20 });
@@ -150,7 +150,27 @@ describe("나의 최종 1인 지우기", () => {
     expect(await listFinishedGames(db, p.id)).toHaveLength(1);
     expect(await hideFinishedGame(db, p.id, s.game.id)).toBe(true);
     expect(await listFinishedGames(db, p.id)).toHaveLength(0);
-    expect(await playableCandidateIds(db, p.id)).toHaveLength(8); // 40명 중 본 32명은 여전히 제외
+    expect(await playableCandidateIds(db, p.id)).toHaveLength(40); // 본 32명이 다시 후보로
+  });
+});
+
+describe("나의 최종 1인 지우기(여러 판)", () => {
+  it("다른 판에서도 본 후보는 계속 제외된다", async () => {
+    await seed(40);
+    const p = await player();
+    const first = await startGame(db, p.id, 32);
+    if (!first.ok) throw new Error();
+    await finish(p.id, first.game.id, first.game.entrants);
+    await resetSeen(db, p.id); // 두 번째 판이 첫 판 후보와 겹칠 수 있게
+    const second = await startGame(db, p.id, 32);
+    if (!second.ok) throw new Error();
+    await finish(p.id, second.game.id, second.game.entrants);
+    const overlap = second.game.entrants.filter((id) => first.game.entrants.includes(id)).length;
+    // 첫 판은 이미 counted=false 라 두 번째 판만 제외에 쓰인다. 두 번째 판을 지우면 모두 돌아온다
+    expect(await playableCandidateIds(db, p.id)).toHaveLength(8);
+    expect(overlap).toBeGreaterThan(0);
+    await hideFinishedGame(db, p.id, second.game.id);
+    expect(await playableCandidateIds(db, p.id)).toHaveLength(40);
   });
 });
 

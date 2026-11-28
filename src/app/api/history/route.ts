@@ -4,7 +4,7 @@ import { getDb } from "@/server/db";
 import { body, fail, guarded, json } from "@/server/http";
 import { hideFinishedGame } from "@/server/store";
 
-/** '나의 최종 1인' 기록 지우기 { gameId } — 목록에서만 빠지고 본 후보 제외는 그대로 */
+/** '나의 최종 1인' 기록 지우기 { gameId } — 목록에서 빠지고 그 판 후보도 다시 볼 수 있게 된다 */
 export async function DELETE(req: NextRequest) {
   return guarded(async () => {
     const id = playerIdFrom(req);

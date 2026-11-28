@@ -69,13 +69,14 @@ export default function MyWorldCup() {
   };
 
   const [removing, setRemoving] = useState<string | null>(null);
-  /** '나의 최종 1인' 기록 지우기. 목록에서만 빠지고 그 판에 나온 후보는 계속 제외된다 */
-  const removeHistory = async (gameId: string, name: string) => {
-    if (!window.confirm(`${name} 기록을 지울까요?`)) return;
+  /** '나의 최종 1인' 기록 지우기. 그 판에 나온 후보도 다시 볼 수 있게 되므로 남은 후보 수를 다시 불러온다 */
+  const removeHistory = async (gameId: string, name: string, size: number) => {
+    if (!window.confirm(`${name} 기록을 지울까요? 이 ${size}강에 나온 후보들이 다시 나와요.`)) return;
     setRemoving(gameId);
     try {
       await api("/api/history", { method: "DELETE", body: { gameId } });
       setMe((m) => (m ? { ...m, history: m.history.filter((h) => h.gameId !== gameId) } : m));
+      await load();
     } catch (e) {
       setError(e instanceof Error ? e.message : "지우지 못했어요");
     } finally {
@@ -202,7 +203,7 @@ export default function MyWorldCup() {
             {me.history.map((h) => (
               <li key={h.gameId} className={`relative overflow-hidden rounded-2xl bg-white/[.06] shadow-sm transition ${removing === h.gameId ? "opacity-40" : ""}`}>
                 <button
-                  onClick={() => void removeHistory(h.gameId, h.champion.name)}
+                  onClick={() => void removeHistory(h.gameId, h.champion.name, h.size)}
                   disabled={removing === h.gameId}
                   aria-label={`${h.champion.name} 기록 지우기`}
                   title="기록 지우기"
