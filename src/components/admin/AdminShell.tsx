@@ -55,25 +55,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
       <header className="flex h-14 shrink-0 items-center justify-between gap-4 pr-3 pl-4 md:pl-6">
         <Link href="/admin" className="flex items-center gap-2">
           <Trophy weight="fill" className="size-5" />
-          <span className="font-semibold">이상형 월드컵</span>
-          <span className="text-sm text-neutral-500">관리자</span>
+          <span className="font-semibold whitespace-nowrap">이상형 월드컵</span>
+          <span className="hidden text-sm text-neutral-500 sm:inline">관리자</span>
         </Link>
         <div className="flex items-center gap-1">
           <Link
             href="/"
             target="_blank"
+            aria-label="사용자 화면"
+            title="사용자 화면"
             className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
           >
             <ArrowSquareOut className="size-4" />
-            사용자 화면
+            <span className="hidden sm:inline">사용자 화면</span>
           </Link>
           {authed && (
             <button
               onClick={() => void logout()}
+              aria-label="로그아웃"
+              title="로그아웃"
               className="inline-flex h-8 items-center gap-1.5 rounded-md px-3 text-sm font-medium hover:bg-black/5 dark:hover:bg-white/10"
             >
               <SignOut className="size-4" />
-              로그아웃
+              <span className="hidden sm:inline">로그아웃</span>
             </button>
           )}
         </div>

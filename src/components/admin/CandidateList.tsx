@@ -2,7 +2,7 @@
 
 import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { AdminCandidate } from "@/lib/api-types";
 import { api } from "@/lib/client-api";
 import { parseCandidate } from "@/lib/validation";
@@ -11,6 +11,12 @@ import { PHOTO_ACCEPT, isPhotoFile } from "@/lib/image";
 import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
 import { LocalPreview, usePastedImage } from "./photoInput";
 import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
+
+// 고정 열: 표 바탕색을 칠해 밑으로 지나가는 열이 비치지 않게 하고, 가로로 밀렸을 때만 경계 그림자
+const PIN_BASE = "sticky z-10 bg-white dark:bg-neutral-900 transition-shadow";
+const PIN_LEFT = `${PIN_BASE} left-0 group-data-[left=true]/scroll:shadow-[10px_0_12px_-10px_rgba(0,0,0,0.35)]`;
+const PIN_RIGHT = `${PIN_BASE} right-0 group-data-[right=true]/scroll:shadow-[-10px_0_12px_-10px_rgba(0,0,0,0.35)]`;
+const PIN_ROW_HOVER = "group-hover/row:bg-neutral-50 dark:group-hover/row:bg-neutral-800";
 
 type Filter = "all" | "active" | "hidden" | "noPhoto";
 // '사진 필요': 실제 사진 대신 이름 카드로 올라간 후보만 모아 본다(2026-11-28 사용자 지시)
@@ -29,6 +35,24 @@ export default function CandidateList() {
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<AdminCandidate | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [edges, setEdges] = useState({ left: false, right: false });
+  const updateEdges = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const left = el.scrollLeft > 1;
+    const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1;
+    setEdges((e) => (e.left === left && e.right === right ? e : { left, right }));
+  }, []);
+  // 창 크기가 바뀌거나 목록이 바뀌어 넘침 여부가 달라지면 다시 잰다
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(updateEdges);
+    ro.observe(el);
+    if (el.firstElementChild) ro.observe(el.firstElementChild);
+    return () => ro.disconnect();
+  }, [updateEdges]);
 
   useEffect(() => {
     let alive = true;
@@ -116,17 +140,26 @@ export default function CandidateList() {
         </div>
       </div>
 
-      {/* 표: 모서리 0 · 좌우 테두리 없음 · 가로선만, 머리글은 아래 선 하나 */}
-      <div className="w-full overflow-x-auto border-y border-neutral-200 dark:border-neutral-800">
-        <table className="w-full min-w-[880px] border-collapse text-left text-sm">
+      {/* 표: 모서리 0 · 좌우 테두리 없음 · 가로선만, 머리글은 아래 선 하나.
+          사진+이름 열은 왼쪽, 숨기기·수정 열은 오른쪽에 고정(2026-11-28 사용자 지시). 가로로 밀리면 고정 열 경계에 그림자 */}
+      <div
+        ref={scrollRef}
+        onScroll={updateEdges}
+        data-left={edges.left}
+        data-right={edges.right}
+        className="group/scroll w-full overflow-x-auto border-y border-neutral-200 dark:border-neutral-800"
+      >
+        <table className="w-full min-w-[880px] border-separate border-spacing-0 text-left text-sm">
           <thead>
-            <tr className="border-b border-neutral-200 dark:border-neutral-800">
-              {["사진", "이름", "소속 그룹", "키", "국적", "타이틀", "나이", "상태", "등록일", ""].map((h, i) => (
+            <tr>
+              {["이름", "소속 그룹", "키", "국적", "타이틀", "나이", "상태", "등록일", ""].map((h, i, all) => (
                 <th
                   key={i}
                   className={cn(
-                    "h-10 px-3 align-middle text-xs font-medium whitespace-nowrap text-neutral-500 first:pl-0 last:pr-0",
+                    "h-10 border-b border-neutral-200 px-3 align-middle text-xs font-medium whitespace-nowrap text-neutral-500 dark:border-neutral-800",
                     (h === "키" || h === "나이") && "text-right",
+                    i === 0 && cn(PIN_LEFT, "pl-0"),
+                    i === all.length - 1 && cn(PIN_RIGHT, "pr-0"),
                   )}
                 >
                   {h}
@@ -141,12 +174,20 @@ export default function CandidateList() {
               <EmptyRow>{all.length === 0 ? "아직 등록된 후보가 없어요. ‘후보 올리기’에서 추가해 주세요." : "조건에 맞는 후보가 없어요."}</EmptyRow>
             ) : (
               rows.map((c) => (
-                <tr key={c.id} className={cn("border-b border-neutral-200 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-800/40", !c.active && "text-neutral-400")}>
-                  <td className="py-2 pr-3 align-middle">
-                    {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 줄인 사진 */}
-                    <img src={c.imageUrl} alt="" className={cn("h-12 w-9 rounded-md object-cover", !c.active && "opacity-50")} />
+                <tr
+                  key={c.id}
+                  className={cn(
+                    "group/row hover:bg-neutral-50 dark:hover:bg-neutral-800 [&>td]:border-b [&>td]:border-neutral-200 dark:[&>td]:border-neutral-800",
+                    !c.active && "text-neutral-400",
+                  )}
+                >
+                  <td className={cn(PIN_LEFT, PIN_ROW_HOVER, "py-2 pr-3 align-middle")}>
+                    <div className="flex items-center gap-3">
+                      {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 줄인 사진 */}
+                      <img src={c.imageUrl} alt="" className={cn("h-12 w-9 shrink-0 rounded-md object-cover", !c.active && "opacity-50")} />
+                      <span className="font-medium whitespace-nowrap">{c.name}</span>
+                    </div>
                   </td>
-                  <td className="px-3 align-middle font-medium whitespace-nowrap">{c.name}</td>
                   <td className="px-3 align-middle whitespace-nowrap">{c.groupName ?? <span className="text-neutral-400">—</span>}</td>
                   <td className="px-3 text-right align-middle tabular-nums">{c.heightCm}cm</td>
                   <td className="px-3 align-middle whitespace-nowrap">{c.nationality}</td>
@@ -159,7 +200,7 @@ export default function CandidateList() {
                     </div>
                   </td>
                   <td className="px-3 align-middle whitespace-nowrap text-neutral-500 tabular-nums">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</td>
-                  <td className="py-2 pl-3 text-right align-middle whitespace-nowrap">
+                  <td className={cn(PIN_RIGHT, PIN_ROW_HOVER, "py-2 pl-3 text-right align-middle whitespace-nowrap")}>
                     <div className="flex justify-end gap-1">
                       <Button variant="ghost" size="sm" disabled={busyId === c.id} onClick={() => void toggle(c)}>
                         {c.active ? "숨기기" : "다시 표시"}
@@ -194,7 +235,7 @@ export default function CandidateList() {
 function EmptyRow({ children }: { children: React.ReactNode }) {
   return (
     <tr>
-      <td colSpan={10} className="py-10 text-center text-sm text-neutral-500">
+      <td colSpan={9} className="py-10 text-center text-sm text-neutral-500">
         {children}
       </td>
     </tr>
