@@ -1,23 +1,16 @@
 @import "tailwindcss";
 
-:root {
-  --bg: #fff7f3;
-  --fg: #1d1626;
-  --card: #ffffff;
-  --line: #f0e4de;
-  --muted: #7a6f80;
-  --accent: #ff4d6d;
-}
+/* 기본 다크 모드(2026-11-28 사용자 지시): 시스템 설정과 상관없이 어두운 테마. <html class="dark"> 로 dark: 변형도 켠다. */
+@custom-variant dark (&:where(.dark, .dark *));
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #14101a;
-    --fg: #f4eef7;
-    --card: #221b2b;
-    --line: #322839;
-    --muted: #a89fb0;
-    --accent: #ff5c7a;
-  }
+:root {
+  color-scheme: dark;
+  --bg: #0f0c14;
+  --fg: #f4eef7;
+  --card: #1c1724;
+  --line: #2f2838;
+  --muted: #a89fb0;
+  --accent: #ff5c7a;
 }
 
 @theme inline {
@@ -29,6 +22,33 @@
   --color-accent: var(--accent);
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   --animate-pop: pop 0.3s ease-out;
+  --animate-fade-in: fade-in 1.2s ease-out;
+  --animate-marquee-left: marquee-left 160s linear infinite;
+  --animate-marquee-right: marquee-right 160s linear infinite;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 @keyframes pop {

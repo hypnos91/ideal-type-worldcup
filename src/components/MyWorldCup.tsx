@@ -7,6 +7,7 @@ import { ApiError, api } from "@/lib/client-api";
 import { SIZES, replay, roundLabel } from "@/lib/tournament";
 import { CandidateInfo, CandidatePhoto } from "./CandidateCard";
 import Game from "./Game";
+import PhotoBackdrop from "./PhotoBackdrop";
 
 export default function MyWorldCup() {
   const router = useRouter();
@@ -94,7 +95,7 @@ export default function MyWorldCup() {
           {error ?? "불러오는 중…"}
         </p>
         {error && (
-          <button onClick={() => void load()} className="mx-auto rounded-full bg-card px-5 py-2 font-semibold">
+          <button onClick={() => void load()} className="mx-auto rounded-full bg-white/[.06] px-5 py-2 font-semibold">
             다시 시도
           </button>
         )}
@@ -108,11 +109,10 @@ export default function MyWorldCup() {
     <Shell>
       <header className="flex items-start justify-between gap-3">
         <div>
-          <p className="text-sm font-semibold tracking-widest text-accent">IDEAL TYPE WORLD CUP</p>
-          <h1 className="mt-1 text-2xl font-black sm:text-3xl">{me.player.name}님의 이상형 월드컵</h1>
+          <h1 className="text-2xl font-black sm:text-3xl">{me.player.name}님의 이상형 월드컵</h1>
           <p className="mt-1 text-sm text-muted">{me.player.email}</p>
         </div>
-        <button onClick={logout} className="shrink-0 rounded-full px-3 py-1.5 text-sm text-muted hover:bg-card">
+        <button onClick={logout} className="shrink-0 rounded-full px-3 py-1.5 text-sm text-muted hover:bg-white/[.06]">
           나가기
         </button>
       </header>
@@ -152,7 +152,7 @@ export default function MyWorldCup() {
                   key={s}
                   onClick={() => void start(s)}
                   disabled={!ok || busy}
-                  className="rounded-2xl bg-card py-4 font-black shadow-sm transition hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-card disabled:hover:text-fg"
+                  className="rounded-2xl bg-white/[.06] py-4 font-black shadow-sm transition hover:bg-accent hover:text-white disabled:opacity-40 disabled:hover:bg-white/[.06] disabled:hover:text-fg"
                 >
                   {s}강
                   {!ok && <span className="block text-[11px] font-normal">후보 부족</span>}
@@ -161,11 +161,8 @@ export default function MyWorldCup() {
             })}
           </div>
         ) : (
-          <div className="rounded-2xl bg-card p-5 text-center">
+          <div className="rounded-2xl bg-white/[.06] p-5 text-center">
             <p className="font-bold">모든 후보를 다 봤어요 👀</p>
-            <p className="mt-1 text-sm text-muted">
-              새 월드컵은 후보가 32명 이상 남아야 열려요. 처음부터 다시 보거나 새 후보가 올라오길 기다려 주세요.
-            </p>
             <button
               onClick={() => void reset()}
               disabled={busy}
@@ -175,17 +172,16 @@ export default function MyWorldCup() {
             </button>
           </div>
         )}
-        <p className="text-xs text-muted">끝까지 마친 월드컵에 나온 후보는 다음 월드컵에서 빠져요.</p>
       </section>
 
       <section className="flex flex-col gap-3">
         <h2 className="font-bold">나의 최종 1인</h2>
         {me.history.length === 0 ? (
-          <p className="rounded-2xl bg-card p-5 text-center text-sm text-muted">아직 끝까지 마친 월드컵이 없어요.</p>
+          <p className="rounded-2xl bg-white/[.06] p-5 text-center text-sm text-muted">아직 끝까지 마친 월드컵이 없어요.</p>
         ) : (
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {me.history.map((h) => (
-              <li key={h.gameId} className="overflow-hidden rounded-2xl bg-card shadow-sm">
+              <li key={h.gameId} className="overflow-hidden rounded-2xl bg-white/[.06] shadow-sm">
                 <CandidatePhoto c={h.champion} className="aspect-[3/4] w-full" />
                 <div className="flex flex-col gap-1 px-2 py-3">
                   <CandidateInfo c={h.champion} size="sm" />
@@ -202,6 +198,14 @@ export default function MyWorldCup() {
   );
 }
 
+/** 사진 배경 위의 카드 패널 */
 function Shell({ children }: { children: React.ReactNode }) {
-  return <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-6 sm:py-10">{children}</main>;
+  return (
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6 sm:py-10">
+      <PhotoBackdrop />
+      <div className="animate-pop flex flex-col gap-6 rounded-3xl border border-white/10 bg-card/80 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-8">
+        {children}
+      </div>
+    </main>
+  );
 }

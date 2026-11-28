@@ -5,6 +5,7 @@ import type { GameView, PublicCandidate } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { replay, roundLabel, summary, type CurrentMatch } from "@/lib/tournament";
 import { CandidateInfo, CandidatePhoto } from "./CandidateCard";
+import PhotoBackdrop from "./PhotoBackdrop";
 
 const PICK_DELAY_MS = 380;
 
@@ -118,9 +119,12 @@ export default function Game({ game, onDone }: { game: GameView; onDone: () => v
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6 sm:py-10">
-      {saveError}
-      <Result game={game} picks={picks} saving={save.kind !== "idle"} onDone={onDone} />
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6 sm:py-10">
+      <PhotoBackdrop />
+      <div className="animate-pop flex flex-col gap-5 rounded-3xl border border-white/10 bg-card/80 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-8">
+        {saveError}
+        <Result game={game} picks={picks} saving={save.kind !== "idle"} onDone={onDone} />
+      </div>
     </main>
   );
 }
@@ -233,7 +237,7 @@ function Result({
     <section className="flex flex-col items-center gap-6 text-center">
       <div className="flex w-full flex-col items-center">
         <p className="font-semibold text-accent">🏆 {game.size}강 최종 1인</p>
-        <div className="animate-pop mt-3 w-full max-w-xs overflow-hidden rounded-3xl bg-card shadow-xl ring-4 ring-accent">
+        <div className="animate-pop mt-3 w-full max-w-xs overflow-hidden rounded-3xl bg-white/[.06] shadow-xl ring-4 ring-accent">
           <CandidatePhoto c={champion} className="aspect-[3/4] w-full" />
           <div className="px-3 py-4">
             <CandidateInfo c={champion} size="lg" />
@@ -248,7 +252,7 @@ function Result({
           {path.map((m) => {
             const loser = game.candidates[m.a === m.winner ? m.b : m.a];
             return (
-              <li key={m.roundSize} className="flex items-center justify-between rounded-xl bg-card px-4 py-2 text-sm">
+              <li key={m.roundSize} className="flex items-center justify-between rounded-xl bg-white/[.06] px-4 py-2 text-sm">
                 <span className="font-semibold">{roundLabel(m.roundSize)}</span>
                 <span className="truncate text-muted">vs {loser.name}</span>
               </li>

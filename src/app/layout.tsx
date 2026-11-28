@@ -9,15 +9,13 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fff7f3" },
-    { media: "(prefers-color-scheme: dark)", color: "#14101a" },
-  ],
+  themeColor: "#0f0c14",
+  colorScheme: "dark",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
-    <html lang="ko" className="h-full antialiased">
+    <html lang="ko" className="dark h-full antialiased">
       <body className="flex min-h-full flex-col">{children}</body>
     </html>
   );
