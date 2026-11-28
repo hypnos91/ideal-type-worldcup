@@ -9,6 +9,7 @@ import { parseCandidate } from "@/lib/validation";
 import { useAdminApiError } from "./AdminShell";
 import { CandidateFieldsForm, EMPTY_FIELDS, FIELD_DEFS, createCandidate, type CandidateFields } from "./candidateFields";
 import { LocalPreview, usePastedImage } from "./photoInput";
+import PhotoGuide from "./PhotoGuide";
 import { Badge, Button, Notice, PageHeader, buttonClass, cn, inputClass } from "./ui";
 
 const PARALLEL = 3;
@@ -40,6 +41,7 @@ export default function CandidateUpload() {
           </button>
         ))}
       </div>
+      <PhotoGuide />
       {mode === "single" ? <SingleUpload /> : <BulkUpload />}
     </>
   );

@@ -27,3 +27,17 @@ export function faceCrop(face: FaceBox | null): { backgroundSize: string; backgr
     backgroundPosition: `${pct(left, aspect - side).toFixed(1)}% ${pct(top, 1 - side).toFixed(1)}%`,
   };
 }
+
+/**
+ * 사진을 칸에 꽉 채워 자를 때(object-fit: cover) 얼굴이 잘리지 않게 하는 object-position.
+ * CSS 의 퍼센트 위치는 '사진의 p% 지점'을 '칸의 p% 지점'에 맞추므로, 얼굴 중심 비율을 그대로 쓰면
+ * 얼굴이 사진 안에서와 같은 상대 위치에 보인다(가운데 자르기는 위쪽 얼굴을 잘라 냈다, 2026-11-28 사용자 제보).
+ * 얼굴을 못 찾은 사진은 인물 사진에서 얼굴이 흔히 있는 위쪽(25%)에 맞춘다.
+ */
+export function facePosition(face: FaceBox | null): string {
+  if (!face) return "50% 25%";
+  const [x, y, w, h] = face;
+  const pct = (v: number) => `${(Math.min(Math.max(v, 0), 1) * 100).toFixed(1)}%`;
+  // 머리카락까지 보이게 얼굴 상자 중심보다 살짝 위
+  return `${pct(x + w / 2)} ${pct(y + h * 0.4)}`;
+}

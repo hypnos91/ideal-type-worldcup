@@ -1,5 +1,5 @@
 import type { PublicCandidate } from "@/lib/api-types";
-import { faceCrop } from "@/lib/face";
+import { faceCrop, facePosition } from "@/lib/face";
 
 /** 후보 정보 한 줄: 키 · 국적 · 타이틀 · 나이 (2026-11-28 사용자 지시 순서, 이름과 소속 그룹은 그 위에) */
 export function candidateFacts(c: PublicCandidate): string {
@@ -29,10 +29,17 @@ export function CandidateInfo({
   );
 }
 
+/** 칸을 꽉 채우는 후보 사진. 얼굴 위치를 기준으로 잘라 얼굴이 잘리지 않게 한다 */
 export function CandidatePhoto({ c, className = "" }: { c: PublicCandidate; className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 이미 줄인 사진이라 그대로 쓴다
-    <img src={c.imageUrl} alt={c.name} draggable={false} className={`bg-line object-cover ${className}`} />
+    <img
+      src={c.imageUrl}
+      alt={c.name}
+      draggable={false}
+      className={`bg-line object-cover ${className}`}
+      style={{ objectPosition: facePosition(c.face) }}
+    />
   );
 }
 

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { faceCrop, isFaceBox } from "./face";
+import { faceCrop, facePosition, isFaceBox } from "./face";
 
 describe("isFaceBox", () => {
   it("범위 확인", () => {
@@ -7,6 +7,18 @@ describe("isFaceBox", () => {
     expect(isFaceBox([0.8, 0.2, 0.4, 0.3, 0.75])).toBe(false);
     expect(isFaceBox([0.3, 0.2, 0.4, 0.3])).toBe(false);
     expect(isFaceBox("x")).toBe(false);
+  });
+});
+
+describe("facePosition", () => {
+  it("얼굴 중심(살짝 위) 비율을 그대로 쓴다", () => {
+    expect(facePosition([0.3, 0.1, 0.4, 0.2, 0.75])).toBe("50.0% 18.0%");
+  });
+  it("얼굴이 없으면 위쪽 가운데", () => {
+    expect(facePosition(null)).toBe("50% 25%");
+  });
+  it("0~100% 를 넘지 않는다", () => {
+    expect(facePosition([0.9, 0.95, 0.1, 0.05, 1])).toBe("95.0% 97.0%");
   });
 });
 

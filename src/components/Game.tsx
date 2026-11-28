@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowCounterClockwise, X } from "@phosphor-icons/react";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { GameView, PublicCandidate } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
@@ -187,8 +188,9 @@ function FullscreenMatch({
           <div className="h-full bg-accent transition-all duration-300" style={{ width: `${progress * 100}%` }} />
         </div>
         <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
-          <button onClick={onExit} className="pointer-events-auto justify-self-start rounded-full px-3 py-1.5 text-sm text-white/90 hover:bg-white/15">
-            ← 나가기
+          {/* 아이콘만 있는 리퀴드 글라스 버튼(2026-11-28 사용자 지시) */}
+          <button onClick={onExit} aria-label="나가기" title="나가기" className="glass pointer-events-auto size-11 justify-self-start">
+            <X className="size-5" weight="bold" />
           </button>
           <div className="text-center">
             <h1 className="text-xl font-black drop-shadow sm:text-3xl">{roundLabel(current.roundSize)}</h1>
@@ -201,17 +203,16 @@ function FullscreenMatch({
           <button
             onClick={onUndo}
             disabled={!canUndo}
-            className="pointer-events-auto justify-self-end rounded-full px-3 py-1.5 text-sm text-white/90 hover:bg-white/15 disabled:invisible"
+            aria-label="되돌리기"
+            title="되돌리기"
+            className="glass pointer-events-auto size-11 justify-self-end disabled:invisible"
           >
-            ↶ 되돌리기
+            <ArrowCounterClockwise className="size-5" weight="bold" />
           </button>
         </div>
         {notice && <div className="pointer-events-auto mx-auto mt-2 w-fit max-w-[92%]">{notice}</div>}
       </div>
 
-      <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-4 py-2 text-base font-black text-black shadow-xl sm:px-5 sm:py-4 sm:text-2xl">
-        VS
-      </span>
     </div>
   );
 }
