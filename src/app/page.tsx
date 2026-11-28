@@ -1,5 +1,5 @@
-import WorldCup from "@/components/WorldCup";
+import Entry from "@/components/Entry";
 
 export default function Home() {
-  return <WorldCup />;
+  return <Entry />;
 }

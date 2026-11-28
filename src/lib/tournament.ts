@@ -4,7 +4,7 @@
 
 export type Rng = () => number;
 
-export const SIZES = [4, 8, 16, 32] as const;
+export const SIZES = [32, 64, 128] as const;
 
 export interface TournamentState {
   entrants: string[];
@@ -24,6 +24,8 @@ export interface CurrentMatch {
   totalMatches: number;
   a: string;
   b: string;
+  /** 같은 라운드의 다음 대결(사진 미리 받기용). 라운드 마지막 대결이면 null */
+  next: [string, string] | null;
 }
 
 export interface Progress {
@@ -45,9 +47,13 @@ function isPowerOfTwo(n: number): boolean {
   return n >= 2 && (n & (n - 1)) === 0;
 }
 
-/** 후보 수로 고를 수 있는 강수 목록. */
+/** 남은 후보 수로 고를 수 있는 강수 목록(작은 것부터). */
 export function availableSizes(candidateCount: number): number[] {
   return SIZES.filter((s) => s <= candidateCount);
+}
+
+export function isAllowedSize(size: number): boolean {
+  return (SIZES as readonly number[]).includes(size);
 }
 
 /** 후보 중 size 명을 무작위로 뽑아 섞은 첫 대진표를 만든다. */
@@ -94,8 +100,18 @@ export function replay(state: TournamentState): Progress {
       totalMatches: round.length / 2,
       a: round[2 * i],
       b: round[2 * i + 1],
+      next: 2 * i + 3 < round.length ? [round[2 * i + 2], round[2 * i + 3]] : null,
     },
   };
+}
+
+/** entrants 와 picks 를 그대로 받아, 처음부터 재생해 보고 맞으면 진행 상황을, 틀리면 null 을 돌려준다. */
+export function tryReplay(state: TournamentState): Progress | null {
+  try {
+    return replay(state);
+  } catch {
+    return null;
+  }
 }
 
 export function pick(state: TournamentState, winnerId: string): TournamentState {
@@ -128,7 +144,7 @@ export function restore(raw: unknown, candidateIds: readonly string[]): Tourname
 
 export function roundLabel(roundSize: number): string {
   if (roundSize === 2) return "결승";
-  if (roundSize === 4) return "준결승";
+  if (roundSize === 4) return "준결승 (4강)";
   return `${roundSize}강`;
 }
 

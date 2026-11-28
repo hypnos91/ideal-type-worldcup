@@ -57,6 +57,20 @@ describe("createTournament", () => {
 });
 
 describe("replay / pick", () => {
+  it("128강은 127번 고르면 우승자가 나온다", () => {
+    const many = Array.from({ length: 150 }, (_, i) => `p${i}`);
+    let state = createTournament(many, 128, seeded(11));
+    for (;;) {
+      const { current } = replay(state);
+      if (!current) break;
+      state = pick(state, current.b);
+    }
+    expect(state.picks).toHaveLength(127);
+    expect(replay(state).matches.map((m) => m.roundSize).filter((v, i, a) => a.indexOf(v) === i)).toEqual([
+      128, 64, 32, 16, 8, 4, 2,
+    ]);
+  });
+
   it("16강은 15번 고르면 우승자가 나온다", () => {
     const state = playLeft(16);
     expect(state.picks).toHaveLength(15);
@@ -68,6 +82,7 @@ describe("replay / pick", () => {
   it("라운드와 대결 번호를 계산한다", () => {
     let s = createTournament(ids, 8, seeded(5));
     expect(replay(s).current).toMatchObject({ roundSize: 8, matchNo: 1, totalMatches: 4 });
+    expect(replay(s).current!.next).toEqual([s.entrants[2], s.entrants[3]]);
     for (let i = 0; i < 4; i++) s = pick(s, replay(s).current!.b);
     expect(replay(s).current).toMatchObject({ roundSize: 4, matchNo: 1, totalMatches: 2 });
     // 다음 라운드는 이긴 순서대로 짝을 짓는다
@@ -115,12 +130,14 @@ describe("summary / roundLabel", () => {
 
   it("라운드 이름", () => {
     expect(roundLabel(2)).toBe("결승");
-    expect(roundLabel(4)).toBe("준결승");
+    expect(roundLabel(4)).toBe("준결승 (4강)");
+    expect(roundLabel(128)).toBe("128강");
     expect(roundLabel(16)).toBe("16강");
   });
 
   it("강수 목록", () => {
-    expect(availableSizes(20)).toEqual([4, 8, 16]);
-    expect(availableSizes(3)).toEqual([]);
+    expect(availableSizes(200)).toEqual([32, 64, 128]);
+    expect(availableSizes(100)).toEqual([32, 64]);
+    expect(availableSizes(31)).toEqual([]);
   });
 });

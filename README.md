@@ -1,39 +1,59 @@
 # 이상형 월드컵
 
-둘 중 하나를 고르며 토너먼트를 진행하고, 마지막까지 남은 하나를 보여 주는 웹 게임입니다.
+관리자가 올린 후보 중 둘씩 무작위로 붙여 한 명씩 고르게 하고, 토너먼트로 최종 1인을 뽑는 웹 게임입니다.
 
-- 주제 선택(음식·디저트·동물)과 강수 선택(4·8·16·32강, 후보 수 이내)
-- 매 대결 좌우 카드 선택, 진행도 표시, 되돌리기
-- 새로고침해도 이어하기(localStorage)
-- 결과: 우승자, 결승 상대, 우승까지의 길, 공유(Web Share / 클립보드)
-- 키보드: `←` `→` 선택, `Backspace` 되돌리기
+## 기능
 
-## 개발
+### 사용자 (`/`, `/me`)
+- 이메일·이름·나이를 입력하면 개인 월드컵이 생깁니다. 같은 정보로 다시 들어오면 기록이 이어집니다.
+  - 같은 이메일인데 이름이나 나이가 다르면 거절합니다(다른 사람의 기록을 보지 못하게).
+- 128강 · 64강 · 32강 중 선택 → 128강부터면 128 → 64 → 32 → 16 → 8 → 준결승(4강) → 결승.
+- **끝까지 마친 월드컵에 나온 후보는 다음 월드컵에서 빠집니다.** 남은 후보로 가능한 강수만 고를 수 있고,
+  32명도 안 남으면 '처음부터 다시 하기'(본 후보 기록만 비우고 우승 기록은 유지)를 안내합니다.
+- 중간에 그만둔 월드컵은 다음에 이어할 수 있고, 제외 목록에 넣지 않습니다. 새로 시작하면 버린 판이 됩니다.
+- 지난 월드컵의 최종 1인 목록을 볼 수 있습니다.
+- 후보 카드: 사진, 이름, 소속 그룹(있을 때만), 키 · 국적 · 타이틀 · 나이.
+- 키보드: `←` `→` 선택, `Backspace` 되돌리기(진행 중일 때).
 
-```bash
-npm install
-npm run dev        # http://localhost:3000
-npm test           # 대진 로직 단위 테스트 (vitest)
-npm run typecheck
-npm run lint
-npm run build
-```
+### 관리자 (`/admin`)
+- 비밀번호(`ADMIN_PASSWORD`)로 로그인.
+- 후보 목록 표(검색, 표시/숨김 필터, 수정, 숨기기). 숨긴 후보는 새 월드컵에 나오지 않고 지난 기록에는 남습니다.
+- 후보 올리기: 하나씩, 또는 대량(사진 여러 장 + 표에서 정보 입력, 엑셀·시트에서 붙여넣기, CSV 양식 내려받기).
+- 사진은 브라우저에서 긴 변 1200px WebP 로 줄인 뒤 Vercel Blob 에 바로 올립니다.
+- 레이아웃은 그랜터 디자인 시스템(`/design-system`)의 셸·표·버튼 규격을 따릅니다.
 
 ## 구조
 
 | 경로 | 내용 |
 | --- | --- |
-| `src/lib/tournament.ts` | 대진 로직(순수 함수). 상태는 `처음 대진표 + 고른 순서`만 저장하고 나머지는 `replay`로 계산 |
-| `src/lib/savedGame.ts` | 진행 중인 게임 저장소(메모리 정본 + localStorage 사본) |
-| `src/data/topics.ts` | 주제·후보 데이터 |
-| `src/components/WorldCup.tsx` | 시작·대결·결과 화면 |
+| `src/lib/tournament.ts` | 대진 로직(순수 함수). 판의 상태는 `처음 대진표 + 고른 순서`뿐이고 `replay` 로 진행을 계산 |
+| `src/lib/validation.ts` | 사용자·후보 입력 검증(화면과 서버 공용) |
+| `src/lib/bulk.ts` | 대량 등록용 표 붙여넣기·CSV 파싱 |
+| `src/server/schema.ts` | DB 표 정의(앱이 처음 DB 를 쓸 때 자동 생성) |
+| `src/server/store.ts` | DB 읽기·쓰기. 선택 기록은 서버가 처음부터 재생해 검증한 뒤 저장 |
+| `src/server/auth.ts` | 서명 쿠키(사용자·관리자) |
+| `src/app/api/**` | API |
+| `src/components/` | 사용자 화면, `admin/` 관리자 화면 |
 
-## 주제 추가
+## 환경 변수
 
-`src/data/topics.ts`의 `TOPICS`에 항목을 추가합니다. 후보 id는 주제 안에서 겹치면 안 됩니다.
-사진을 쓰려면 `public/`에 넣고 후보의 `image`에 경로(예: `/candidates/foo.jpg`)를 적습니다.
-실존 인물 사진은 초상권, 그 밖의 이미지는 저작권을 확인하세요.
+| 이름 | 내용 |
+| --- | --- |
+| `DATABASE_URL` | Postgres(Neon) 연결 문자열 — Vercel Neon 연동이 넣어 줌 |
+| `BLOB_READ_WRITE_TOKEN` | Vercel Blob 저장소 — 저장소를 프로젝트에 연결하면 들어옴 |
+| `SESSION_SECRET` | 쿠키 서명 키(32자 이상 무작위) |
+| `ADMIN_PASSWORD` | 관리자 비밀번호 |
 
-## 배포
+## 개발
 
-Vercel에서 이 저장소를 Import하면 설정 없이 배포됩니다.
+```bash
+npm install
+vercel env pull .env.local   # 위 환경 변수 받기
+npm run dev
+npm test                     # 대진 로직·검증·DB(PGlite) 테스트
+npm run typecheck && npm run lint && npm run build
+```
+
+## 나중에 간편로그인을 붙일 때
+`players.email` 이 사용자 식별자입니다. 소셜 로그인에서 확인된 이메일로 같은 행을 찾아 `setPlayerCookie` 를 호출하면
+기존 기록이 그대로 이어집니다.
