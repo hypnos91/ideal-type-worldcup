@@ -36,6 +36,12 @@ export const SCHEMA = [
     created_at timestamptz not null default now(),
     finished_at timestamptz
   )`,
+  // 앱 설정(관리자 비밀번호 해시 등)
+  `create table if not exists settings (
+    key text primary key,
+    value text not null,
+    updated_at timestamptz not null default now()
+  )`,
   `create unique index if not exists games_one_playing on games (player_id) where status = 'playing'`,
   `create index if not exists games_player on games (player_id, status)`,
 ];

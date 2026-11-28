@@ -202,3 +202,18 @@ export async function savePicks(db: Db, playerId: string, gameId: string, picks:
 export async function resetSeen(db: Db, playerId: string): Promise<void> {
   await db.query(`update games set counted = false where player_id = $1 and status = 'finished'`, [playerId]);
 }
+
+/* ───────── 설정 ───────── */
+
+export async function getSetting(db: Db, key: string): Promise<string | null> {
+  const [row] = await db.query<{ value: string }>(`select value from settings where key = $1`, [key]);
+  return row?.value ?? null;
+}
+
+export async function setSetting(db: Db, key: string, value: string): Promise<void> {
+  await db.query(
+    `insert into settings (key, value) values ($1, $2)
+     on conflict (key) do update set value = excluded.value, updated_at = now()`,
+    [key, value],
+  );
+}

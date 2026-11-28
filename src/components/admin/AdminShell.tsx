@@ -17,6 +17,10 @@ const NAV = [
       { href: "/admin/upload", label: "후보 올리기" },
     ],
   },
+  {
+    title: "설정",
+    items: [{ href: "/admin/settings", label: "비밀번호 변경" }],
+  },
 ];
 
 const AdminContext = createContext<{ onApiError: (e: unknown) => string }>({ onApiError: () => "" });

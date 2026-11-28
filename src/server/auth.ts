@@ -1,12 +1,16 @@
 import "server-only";
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { NextRequest, NextResponse } from "next/server";
+import type { Db } from "./db-types";
+import { equalsPlain, passwordVersion, verifyPassword } from "./password";
+import { getSetting } from "./store";
 
 // 서명한 쿠키로 사용자·관리자를 구분한다. 값 = "<내용>.<HMAC>". SESSION_SECRET 이 바뀌면 모두 로그아웃된다.
 const PLAYER_COOKIE = "itw_player";
 const ADMIN_COOKIE = "itw_admin";
 const PLAYER_MAX_AGE = 60 * 60 * 24 * 365;
 const ADMIN_MAX_AGE = 60 * 60 * 24 * 7;
+export const ADMIN_PASSWORD_KEY = "admin_password_hash";
 
 function secret(): string {
   const s = process.env.SESSION_SECRET;
@@ -35,6 +39,8 @@ const cookieBase = {
   path: "/",
 };
 
+/* ───────── 사용자 ───────── */
+
 export function playerIdFrom(req: NextRequest): string | null {
   return verify(req.cookies.get(PLAYER_COOKIE)?.value);
 }
@@ -47,15 +53,42 @@ export function clearPlayerCookie(res: NextResponse) {
   res.cookies.set(PLAYER_COOKIE, "", { ...cookieBase, maxAge: 0 });
 }
 
-export function isAdmin(req: NextRequest): boolean {
-  const value = verify(req.cookies.get(ADMIN_COOKIE)?.value);
-  if (!value) return false;
-  const exp = Number(value.split(":")[1]);
-  return Number.isFinite(exp) && exp > Date.now();
+/* ───────── 관리자 ───────── */
+
+/**
+ * 지금 유효한 관리자 비밀번호. 관리자 화면에서 바꾼 적이 있으면 DB 의 해시가, 없으면 ADMIN_PASSWORD 환경 변수가 정본이다
+ * (2026-11-28 사용자 지시: 처음엔 무작위로 만들고 관리자가 직접 바꿀 수 있게).
+ */
+async function adminSecret(db: Db): Promise<{ kind: "hash" | "plain"; value: string } | null> {
+  const hash = await getSetting(db, ADMIN_PASSWORD_KEY);
+  if (hash) return { kind: "hash", value: hash };
+  const plain = process.env.ADMIN_PASSWORD;
+  return plain ? { kind: "plain", value: plain } : null;
 }
 
-export function setAdminCookie(res: NextResponse) {
-  res.cookies.set(ADMIN_COOKIE, sign(`admin:${Date.now() + ADMIN_MAX_AGE * 1000}`), {
+export async function checkAdminPassword(db: Db, input: unknown): Promise<boolean> {
+  const s = await adminSecret(db);
+  if (!s || typeof input !== "string" || input === "") return false;
+  return s.kind === "hash" ? verifyPassword(input, s.value) : equalsPlain(input, s.value);
+}
+
+async function currentVersion(db: Db): Promise<string | null> {
+  const s = await adminSecret(db);
+  return s ? passwordVersion(s.value) : null;
+}
+
+/** 관리자 쿠키 = admin:<만료 ms>:<비밀번호 버전>. 비밀번호가 바뀌면 버전이 달라져 예전 로그인은 끊긴다. */
+export async function isAdmin(req: NextRequest, db: Db): Promise<boolean> {
+  const value = verify(req.cookies.get(ADMIN_COOKIE)?.value);
+  if (!value) return false;
+  const [tag, exp, ver] = value.split(":");
+  if (tag !== "admin" || !(Number(exp) > Date.now())) return false;
+  return ver === (await currentVersion(db));
+}
+
+export async function setAdminCookie(res: NextResponse, db: Db) {
+  const ver = await currentVersion(db);
+  res.cookies.set(ADMIN_COOKIE, sign(`admin:${Date.now() + ADMIN_MAX_AGE * 1000}:${ver}`), {
     ...cookieBase,
     maxAge: ADMIN_MAX_AGE,
   });
@@ -63,12 +96,4 @@ export function setAdminCookie(res: NextResponse) {
 
 export function clearAdminCookie(res: NextResponse) {
   res.cookies.set(ADMIN_COOKIE, "", { ...cookieBase, maxAge: 0 });
-}
-
-/** 관리자 비밀번호 확인(길이가 달라도 시간 차이가 나지 않게 해시끼리 비교). */
-export function checkAdminPassword(input: unknown): boolean {
-  const expected = process.env.ADMIN_PASSWORD;
-  if (!expected || typeof input !== "string") return false;
-  const h = (s: string) => createHash("sha256").update(s).digest();
-  return timingSafeEqual(h(input), h(expected));
 }
