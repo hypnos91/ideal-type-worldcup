@@ -3,7 +3,7 @@
 import { X } from "@phosphor-icons/react";
 import { useEffect, useEffectEvent, useState } from "react";
 import type { AdminCandidate } from "@/lib/api-types";
-import { candidateFacts } from "../CandidateCard";
+import { CandidatePhoto, candidateFacts } from "../CandidateCard";
 
 /** 후보 사진을 원본 비율 그대로 크게 보는 모달(2026-11-28 사용자 지시). Esc·바깥 누르기·X 로 닫는다. */
 export default function PhotoLightbox({ candidate, onClose }: { candidate: AdminCandidate; onClose: () => void }) {
@@ -40,7 +40,7 @@ export default function PhotoLightbox({ candidate, onClose }: { candidate: Admin
         src={candidate.imageUrl}
         alt={candidate.name}
         onLoad={(e) => setSize(`${e.currentTarget.naturalWidth}×${e.currentTarget.naturalHeight}`)}
-        className="max-h-[calc(100dvh-8rem)] max-w-full rounded-xl object-contain shadow-2xl"
+        className="max-h-[calc(100dvh-19rem)] max-w-full rounded-xl object-contain shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       />
       <div className="text-center text-sm text-white" onMouseDown={(e) => e.stopPropagation()}>
@@ -52,6 +52,26 @@ export default function PhotoLightbox({ candidate, onClose }: { candidate: Admin
           {candidateFacts(candidate)}
           {size && ` · ${size}px`}
         </p>
+      </div>
+      {/* 대결 화면에서 실제로 잘리는 모습(반쪽 칸 비율): 모바일 390×330 안팎, PC 4:5 */}
+      <div className="flex items-end gap-4" onMouseDown={(e) => e.stopPropagation()}>
+        {(
+          [
+            ["모바일", "aspect-[13/11] h-28"],
+            ["PC", "aspect-[4/5] h-28"],
+          ] as const
+        ).map(([label, box]) => (
+          <figure key={label} className="flex flex-col items-center gap-1">
+            <div className={`relative overflow-hidden rounded-lg ring-1 ring-white/20 ${box}`}>
+              <CandidatePhoto c={candidate} className="absolute inset-0 size-full" />
+              <div className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/85 to-transparent" />
+            </div>
+            <figcaption className="text-[11px] text-white/60">{label} 대결 화면</figcaption>
+          </figure>
+        ))}
+        <span className={`mb-5 rounded-md px-2 py-1 text-[11px] ${candidate.face ? "bg-sky-500/20 text-sky-300" : "bg-red-500/20 text-red-300"}`}>
+          {candidate.face ? "얼굴 인식됨" : "얼굴 못 찾음 · 위쪽 기준"}
+        </span>
       </div>
     </div>
   );
