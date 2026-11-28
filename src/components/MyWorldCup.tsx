@@ -74,16 +74,16 @@ export default function MyWorldCup() {
 
   if (playing) {
     return (
-      <Shell>
-        <Game
-          key={playing.id}
-          game={playing}
-          onDone={() => {
-            setPlaying(null);
-            void load();
-          }}
-        />
-      </Shell>
+      <Game
+        key={playing.id}
+        game={playing}
+        onDone={() => {
+          // 방금 끝낸 판이 반영된 숫자만 보이도록, 새로 불러올 때까지 이전 화면 데이터를 지운다
+          setMe(null);
+          setPlaying(null);
+          void load();
+        }}
+      />
     );
   }
 

@@ -91,95 +91,124 @@ export default function Game({ game, onDone }: { game: GameView; onDone: () => v
   }, [current?.next, byId]);
 
   const total = game.entrants.length - 1;
+  const saveError =
+    save.kind === "error" ? (
+      <div className="flex items-center justify-between gap-3 rounded-xl bg-accent/90 px-4 py-2 text-sm text-white shadow-lg" role="alert">
+        <span>{save.message}. 진행은 계속되고, 다음 선택 때 다시 저장해요.</span>
+        <button onClick={() => void flush()} className="shrink-0 font-bold underline">
+          지금 다시 저장
+        </button>
+      </div>
+    ) : null;
+
+  if (current) {
+    return (
+      <FullscreenMatch
+        current={current}
+        byId={byId}
+        chosen={chosen}
+        onChoose={choose}
+        progress={picks.length / total}
+        canUndo={picks.length > 0 && !chosen}
+        onUndo={back}
+        onExit={onDone}
+        notice={saveError}
+      />
+    );
+  }
 
   return (
-    <div className="flex flex-col gap-5">
-      <div className="flex items-center justify-between gap-2">
-        <button onClick={onDone} className="rounded-full px-3 py-1.5 text-sm text-muted hover:bg-card">
-          ← 내 월드컵
-        </button>
-        <span className="font-bold">{game.size}강 월드컵</span>
-        <button
-          onClick={back}
-          disabled={!current || picks.length === 0 || !!chosen}
-          className="rounded-full px-3 py-1.5 text-sm text-muted hover:bg-card disabled:invisible"
-        >
-          ↶ 되돌리기
-        </button>
-      </div>
-
-      <div className="h-1.5 overflow-hidden rounded-full bg-line" aria-hidden>
-        <div className="h-full bg-accent transition-all duration-300" style={{ width: `${(picks.length / total) * 100}%` }} />
-      </div>
-
-      {save.kind === "error" && (
-        <div className="flex items-center justify-between gap-3 rounded-xl bg-accent/10 px-4 py-2 text-sm" role="alert">
-          <span>{save.message}. 진행은 계속되고, 다음 선택 때 다시 저장해요.</span>
-          <button onClick={() => void flush()} className="shrink-0 font-bold text-accent">
-            지금 다시 저장
-          </button>
-        </div>
-      )}
-
-      {current ? (
-        <Match current={current} byId={byId} chosen={chosen} onChoose={choose} />
-      ) : (
-        <Result game={game} picks={picks} saving={save.kind !== "idle"} onDone={onDone} />
-      )}
-    </div>
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-5 px-4 py-6 sm:py-10">
+      {saveError}
+      <Result game={game} picks={picks} saving={save.kind !== "idle"} onDone={onDone} />
+    </main>
   );
 }
 
-function Match({
+/**
+ * 대결 화면: 화면 전체를 좌우 같은 비율로 나눠 두 후보 사진을 꽉 채운다(2026-11-28 사용자 지시).
+ * 사진은 칸을 덮도록 잘리고(object-cover), 정보는 아래쪽 그라데이션 위에 얹는다.
+ */
+function FullscreenMatch({
   current,
   byId,
   chosen,
   onChoose,
+  progress,
+  canUndo,
+  onUndo,
+  onExit,
+  notice,
 }: {
   current: CurrentMatch;
   byId: Record<string, PublicCandidate>;
   chosen: string | null;
   onChoose: (id: string) => void;
+  progress: number;
+  canUndo: boolean;
+  onUndo: () => void;
+  onExit: () => void;
+  notice: React.ReactNode;
 }) {
   return (
-    <>
-      <div className="text-center">
-        <h1 className="text-3xl font-black sm:text-4xl">{roundLabel(current.roundSize)}</h1>
-        {current.totalMatches > 1 && (
-          <p className="mt-1 text-muted">
-            {current.matchNo} / {current.totalMatches}
-          </p>
-        )}
+    <div className="fixed inset-0 z-40 grid grid-cols-2 gap-0.5 bg-black text-white select-none">
+      {[current.a, current.b].map((id) => {
+        const c = byId[id];
+        const state = chosen === null ? "idle" : chosen === id ? "chosen" : "lost";
+        return (
+          <button
+            key={`${current.roundSize}-${current.matchNo}-${id}`}
+            onClick={() => onChoose(id)}
+            disabled={state !== "idle"}
+            aria-label={`${c.name} 선택`}
+            className="group relative h-full min-w-0 overflow-hidden"
+          >
+            <CandidatePhoto
+              c={c}
+              className={`animate-pop absolute inset-0 size-full transition duration-300 ${
+                state === "lost" ? "scale-95 opacity-25 grayscale" : state === "chosen" ? "scale-105" : "group-hover:scale-[1.02]"
+              }`}
+            />
+            {state === "chosen" && <span aria-hidden className="absolute inset-0 ring-8 ring-accent ring-inset" />}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pt-32 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-10">
+              <CandidateInfo c={c} size="xl" onPhoto />
+            </div>
+          </button>
+        );
+      })}
+
+      {/* 위쪽: 진행 막대 · 나가기 · 라운드 · 되돌리기 */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 bg-gradient-to-b from-black/70 to-transparent pb-10">
+        <div className="h-1 bg-white/20" aria-hidden>
+          <div className="h-full bg-accent transition-all duration-300" style={{ width: `${progress * 100}%` }} />
+        </div>
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-2 px-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
+          <button onClick={onExit} className="pointer-events-auto justify-self-start rounded-full px-3 py-1.5 text-sm text-white/90 hover:bg-white/15">
+            ← 나가기
+          </button>
+          <div className="text-center">
+            <h1 className="text-xl font-black drop-shadow sm:text-3xl">{roundLabel(current.roundSize)}</h1>
+            {current.totalMatches > 1 && (
+              <p className="text-xs text-white/80 sm:text-sm">
+                {current.matchNo} / {current.totalMatches}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="pointer-events-auto justify-self-end rounded-full px-3 py-1.5 text-sm text-white/90 hover:bg-white/15 disabled:invisible"
+          >
+            ↶ 되돌리기
+          </button>
+        </div>
+        {notice && <div className="pointer-events-auto mx-auto mt-2 w-fit max-w-[92%]">{notice}</div>}
       </div>
-      <div className="relative grid grid-cols-2 gap-3 sm:gap-6">
-        {[current.a, current.b].map((id) => {
-          const c = byId[id];
-          const state = chosen === null ? "idle" : chosen === id ? "chosen" : "lost";
-          const look = {
-            idle: "hover:-translate-y-1 hover:shadow-xl",
-            chosen: "scale-105 ring-4 ring-accent shadow-xl",
-            lost: "scale-95 opacity-30",
-          }[state];
-          return (
-            <button
-              key={`${current.roundSize}-${current.matchNo}-${id}`}
-              onClick={() => onChoose(id)}
-              disabled={state !== "idle"}
-              className={`animate-pop flex flex-col overflow-hidden rounded-3xl bg-card shadow-md transition duration-300 ${look}`}
-            >
-              <CandidatePhoto c={c} className="aspect-[3/4] w-full" />
-              <div className="px-2 py-3">
-                <CandidateInfo c={c} />
-              </div>
-            </button>
-          );
-        })}
-        <span className="pointer-events-none absolute left-1/2 top-[38%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-fg px-3 py-2 text-sm font-black text-bg shadow-lg sm:px-4 sm:py-3 sm:text-lg">
-          VS
-        </span>
-      </div>
-      <p className="hidden text-center text-xs text-muted sm:block">키보드 ← → 로 고르고 Backspace 로 되돌릴 수 있어요</p>
-    </>
+
+      <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-3 py-2 text-sm font-black text-black shadow-xl sm:px-5 sm:py-4 sm:text-2xl">
+        VS
+      </span>
+    </div>
   );
 }
 

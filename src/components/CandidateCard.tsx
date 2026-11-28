@@ -5,14 +5,25 @@ export function candidateFacts(c: PublicCandidate): string {
   return [`${c.heightCm}cm`, c.nationality, c.title, `${c.age}세`].join(" · ");
 }
 
-export function CandidateInfo({ c, size = "md" }: { c: PublicCandidate; size?: "sm" | "md" | "lg" }) {
-  const nameClass = { sm: "text-sm", md: "text-base sm:text-xl", lg: "text-2xl sm:text-3xl" }[size];
-  const factClass = { sm: "text-[11px]", md: "text-xs sm:text-sm", lg: "text-sm sm:text-base" }[size];
+export function CandidateInfo({
+  c,
+  size = "md",
+  onPhoto = false,
+}: {
+  c: PublicCandidate;
+  size?: "sm" | "md" | "lg" | "xl";
+  /** 사진 위(어두운 그라데이션)에 얹을 때 */
+  onPhoto?: boolean;
+}) {
+  const nameClass = { sm: "text-sm", md: "text-base sm:text-xl", lg: "text-2xl sm:text-3xl", xl: "text-xl sm:text-4xl" }[size];
+  const factClass = { sm: "text-[11px]", md: "text-xs sm:text-sm", lg: "text-sm sm:text-base", xl: "text-xs sm:text-lg" }[size];
   return (
     <div className="flex min-w-0 flex-col items-center gap-0.5 text-center">
       <span className={`${nameClass} max-w-full truncate font-black`}>{c.name}</span>
-      {c.groupName && <span className={`${factClass} max-w-full truncate font-semibold text-accent`}>{c.groupName}</span>}
-      <span className={`${factClass} text-muted`}>{candidateFacts(c)}</span>
+      {c.groupName && (
+        <span className={`${factClass} max-w-full truncate font-semibold ${onPhoto ? "text-pink-200" : "text-accent"}`}>{c.groupName}</span>
+      )}
+      <span className={`${factClass} ${onPhoto ? "text-white/85" : "text-muted"}`}>{candidateFacts(c)}</span>
     </div>
   );
 }
