@@ -5,12 +5,15 @@ import type { Db } from "./db-types";
 import { applySchema } from "./schema";
 import {
   addCandidate,
+  candidatesWithoutFaceCheck,
+  countWithoutFaceCheck,
   findOrCreatePlayer,
   getPlayingGame,
   listFinishedGames,
   playableCandidateIds,
   resetSeen,
   savePicks,
+  setFace,
   startGame,
   updateCandidate,
 } from "./store";
@@ -140,9 +143,25 @@ describe("후보 수정", () => {
     const same = await updateCandidate(db, id, { ...base, name: "새이름" }, true);
     expect(same?.candidate.name).toBe("새이름");
     expect(same?.replacedImageUrl).toBeNull();
-    const swapped = await updateCandidate(db, id, { ...base, name: "새이름" }, true, "https://img/new.webp");
+    const swapped = await updateCandidate(db, id, { ...base, name: "새이름" }, true, { imageUrl: "https://img/new.webp", face: [0.3, 0.2, 0.4, 0.3, 0.75] });
     expect(swapped?.candidate.imageUrl).toBe("https://img/new.webp");
+    expect(swapped?.candidate.face).toEqual([0.3, 0.2, 0.4, 0.3, 0.75]);
     expect(swapped?.replacedImageUrl).toBe("https://img/0.jpg");
     expect(await updateCandidate(db, "없음", base as never, true)).toBeNull();
+  });
+});
+
+describe("얼굴 위치", () => {
+  it("새로 올린 후보는 확인 완료, 예전 후보만 채우기 대상이고 사진이 바뀌었으면 덮어쓰지 않는다", async () => {
+    const withFace = await addCandidate(db, { ...base, name: "새" }, "https://img/a.webp", [0.1, 0.1, 0.2, 0.2, 0.75]);
+    expect(withFace.face).toEqual([0.1, 0.1, 0.2, 0.2, 0.75]);
+    await db.query(`insert into candidates (id, name, title, height_cm, nationality, age, image_url) values ('old', '옛', '배우', 180, '대한민국', 30, 'https://img/old.webp')`);
+    expect(await countWithoutFaceCheck(db)).toBe(1);
+    const [todo] = await candidatesWithoutFaceCheck(db, 10);
+    expect(todo).toEqual({ id: "old", imageUrl: "https://img/old.webp" });
+    await setFace(db, "old", "https://img/other.webp", [0.5, 0.5, 0.1, 0.1, 1]);
+    expect(await countWithoutFaceCheck(db)).toBe(1);
+    await setFace(db, "old", "https://img/old.webp", null);
+    expect(await countWithoutFaceCheck(db)).toBe(0);
   });
 });

@@ -1,11 +1,13 @@
 // DB 읽기·쓰기. 모든 함수는 Db 를 인자로 받아 테스트에서 PGlite 로 그대로 검증한다.
 import type { Db } from "./db-types";
 import type { CandidateInput, PlayerInput } from "@/lib/validation";
+import { isFaceBox, type FaceBox } from "@/lib/face";
 import { createTournament, isAllowedSize, tryReplay, type Rng } from "@/lib/tournament";
 
 export interface Candidate extends CandidateInput {
   id: string;
   imageUrl: string;
+  face: FaceBox | null;
   active: boolean;
   createdAt: string;
 }
@@ -30,7 +32,7 @@ export interface Game {
 
 type Row = Record<string, unknown>;
 
-const CANDIDATE_COLS = "id, name, group_name, title, height_cm, nationality, age, image_url, active, created_at";
+const CANDIDATE_COLS = "id, name, group_name, title, height_cm, nationality, age, image_url, face, active, created_at";
 const GAME_COLS = "id, size, entrants, picks, status, champion_id, created_at, finished_at";
 
 function toCandidate(r: Row): Candidate {
@@ -43,9 +45,15 @@ function toCandidate(r: Row): Candidate {
     nationality: r.nationality as string,
     age: Number(r.age),
     imageUrl: r.image_url as string,
+    face: toFace(r.face),
     active: Boolean(r.active),
     createdAt: iso(r.created_at)!,
   };
+}
+
+function toFace(v: unknown): FaceBox | null {
+  const nums = Array.isArray(v) ? v.map(Number) : null;
+  return nums && isFaceBox(nums) ? nums : null;
 }
 
 function iso(v: unknown): string | null {
@@ -110,32 +118,36 @@ export async function getCandidates(db: Db, ids: string[]): Promise<Candidate[]>
   return rows.map(toCandidate);
 }
 
-export async function addCandidate(db: Db, input: CandidateInput, imageUrl: string): Promise<Candidate> {
+export async function addCandidate(db: Db, input: CandidateInput, imageUrl: string, face: FaceBox | null = null): Promise<Candidate> {
   const [row] = await db.query(
-    `insert into candidates (id, name, group_name, title, height_cm, nationality, age, image_url)
-     values ($1, $2, $3, $4, $5, $6, $7, $8) returning ${CANDIDATE_COLS}`,
-    [crypto.randomUUID(), input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, imageUrl],
+    `insert into candidates (id, name, group_name, title, height_cm, nationality, age, image_url, face, face_checked_at)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9::real[], now()) returning ${CANDIDATE_COLS}`,
+    [crypto.randomUUID(), input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, imageUrl, face],
   );
   return toCandidate(row);
 }
 
 export type UpdateCandidateResult = { candidate: Candidate; replacedImageUrl: string | null } | null;
 
-/** 후보 정보 수정. imageUrl 을 주면 사진도 바꾸고, 바뀌기 전 사진 주소를 돌려준다(저장소에서 지우는 건 호출한 쪽). */
+/**
+ * 후보 정보 수정. photo 를 주면 사진(과 얼굴 위치)도 바꾸고, 바뀌기 전 사진 주소를 돌려준다(저장소에서 지우는 건 호출한 쪽).
+ */
 export async function updateCandidate(
   db: Db,
   id: string,
   input: CandidateInput,
   active: boolean,
-  imageUrl?: string,
+  photo?: { imageUrl: string; face: FaceBox | null },
 ): Promise<UpdateCandidateResult> {
   const [row] = await db.query<Row & { old_image_url: string }>(
     `update candidates c set name = $2, group_name = $3, title = $4, height_cm = $5, nationality = $6, age = $7, active = $8,
-       image_url = coalesce($9, c.image_url)
+       image_url = coalesce($9, c.image_url),
+       face = case when $9::text is null then c.face else $10::real[] end,
+       face_checked_at = case when $9::text is null then c.face_checked_at else now() end
      from (select id, image_url as old_image_url from candidates where id = $1) old
      where c.id = old.id
-     returning c.id, c.name, c.group_name, c.title, c.height_cm, c.nationality, c.age, c.image_url, c.active, c.created_at, old.old_image_url`,
-    [id, input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, active, imageUrl ?? null],
+     returning c.id, c.name, c.group_name, c.title, c.height_cm, c.nationality, c.age, c.image_url, c.face, c.active, c.created_at, old.old_image_url`,
+    [id, input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, active, photo?.imageUrl ?? null, photo?.face ?? null],
   );
   if (!row) return null;
   const candidate = toCandidate(row);
@@ -225,4 +237,25 @@ export async function setSetting(db: Db, key: string, value: string): Promise<vo
      on conflict (key) do update set value = excluded.value, updated_at = now()`,
     [key, value],
   );
+}
+
+/* ───────── 얼굴 위치 채우기 ───────── */
+
+/** 아직 얼굴을 찾아보지 않은 후보(사진 주소) 몇 개 */
+export async function candidatesWithoutFaceCheck(db: Db, limit: number): Promise<{ id: string; imageUrl: string }[]> {
+  const rows = await db.query<{ id: string; image_url: string }>(
+    `select id, image_url from candidates where face_checked_at is null order by created_at limit $1`,
+    [limit],
+  );
+  return rows.map((r) => ({ id: r.id, imageUrl: r.image_url }));
+}
+
+export async function setFace(db: Db, id: string, imageUrl: string, face: FaceBox | null): Promise<void> {
+  // 그사이 사진이 바뀌었으면 덮어쓰지 않는다
+  await db.query(`update candidates set face = $3::real[], face_checked_at = now() where id = $1 and image_url = $2`, [id, imageUrl, face]);
+}
+
+export async function countWithoutFaceCheck(db: Db): Promise<number> {
+  const [r] = await db.query<{ n: string }>(`select count(*) n from candidates where face_checked_at is null`);
+  return Number(r.n);
 }

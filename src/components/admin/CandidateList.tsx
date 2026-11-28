@@ -199,11 +199,11 @@ function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate
     if (!parsed.ok) return setError(parsed.error);
     setBusy(true);
     try {
-      const imageUrl = photo ? await uploadPhoto(photo.file) : undefined;
+      const uploaded = photo ? await uploadPhoto(photo.file) : undefined;
       onSaved(
         await api<AdminCandidate>("/api/admin/candidates", {
           method: "PUT",
-          body: { id: candidate.id, active: candidate.active, imageUrl, ...parsed.value },
+          body: { id: candidate.id, active: candidate.active, imageUrl: uploaded?.url, face: uploaded?.face, ...parsed.value },
         }),
       );
     } catch (e) {

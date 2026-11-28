@@ -1,5 +1,6 @@
 import { del } from "@vercel/blob";
 import type { NextRequest } from "next/server";
+import { isFaceBox } from "@/lib/face";
 import { parseCandidate } from "@/lib/validation";
 import { isAdmin } from "@/server/auth";
 import { getDb } from "@/server/db";
@@ -38,7 +39,8 @@ export async function POST(req: NextRequest) {
     if (!isPhotoUrl(raw?.imageUrl)) return fail("사진 주소가 올바르지 않아요", 400);
     const parsed = parseCandidate(raw);
     if (!parsed.ok) return fail(parsed.error, 400);
-    return json(await addCandidate(db, parsed.value, raw!.imageUrl as string), 201);
+    const face = isFaceBox(raw!.face) ? raw!.face : null;
+    return json(await addCandidate(db, parsed.value, raw!.imageUrl as string, face), 201);
   });
 }
 
@@ -52,7 +54,9 @@ export async function PUT(req: NextRequest) {
     const parsed = parseCandidate(raw);
     if (!parsed.ok) return fail(parsed.error, 400);
     if (raw.imageUrl !== undefined && !isPhotoUrl(raw.imageUrl)) return fail("사진 주소가 올바르지 않아요", 400);
-    const updated = await updateCandidate(db, raw.id, parsed.value, raw.active, raw.imageUrl as string | undefined);
+    const photo =
+      raw.imageUrl === undefined ? undefined : { imageUrl: raw.imageUrl as string, face: isFaceBox(raw.face) ? raw.face : null };
+    const updated = await updateCandidate(db, raw.id, parsed.value, raw.active, photo);
     if (!updated) return fail("후보를 찾을 수 없어요", 404);
     if (updated.replacedImageUrl) {
       // 예전 사진 정리는 실패해도 수정 결과에는 영향이 없다

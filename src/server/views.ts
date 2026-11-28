@@ -14,6 +14,7 @@ export function publicCandidate(c: Candidate): PublicCandidate {
     nationality: c.nationality,
     age: c.age,
     imageUrl: c.imageUrl,
+    face: c.face,
   };
 }
 

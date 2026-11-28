@@ -1,4 +1,6 @@
 // 화면과 API 가 주고받는 모양.
+import type { FaceBox } from "./face";
+
 export interface PublicCandidate {
   id: string;
   name: string;
@@ -8,6 +10,7 @@ export interface PublicCandidate {
   nationality: string;
   age: number;
   imageUrl: string;
+  face: FaceBox | null;
 }
 
 export interface AdminCandidate extends PublicCandidate {

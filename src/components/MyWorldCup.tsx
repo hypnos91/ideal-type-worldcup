@@ -1,5 +1,6 @@
 "use client";
 
+import { X } from "@phosphor-icons/react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import type { GameView, MeResponse } from "@/lib/api-types";
@@ -111,8 +112,13 @@ export default function MyWorldCup() {
           <h1 className="text-2xl font-black sm:text-3xl">{me.player.name}님의 이상형 월드컵</h1>
           <p className="mt-1 text-sm text-muted">{me.player.email}</p>
         </div>
-        <button onClick={logout} className="shrink-0 rounded-full px-3 py-1.5 text-sm text-muted hover:bg-white/[.06]">
-          나가기
+        <button
+          onClick={logout}
+          aria-label="나가기"
+          title="나가기"
+          className="-mt-1 -mr-1 shrink-0 rounded-full p-2 text-muted transition hover:bg-white/10 hover:text-fg"
+        >
+          <X className="size-5" weight="bold" />
         </button>
       </header>
 
@@ -173,11 +179,10 @@ export default function MyWorldCup() {
         )}
       </section>
 
-      <section className="flex flex-col gap-3">
-        <h2 className="font-bold">나의 최종 1인</h2>
-        {me.history.length === 0 ? (
-          <p className="rounded-2xl bg-white/[.06] p-5 text-center text-sm text-muted">아직 끝까지 마친 월드컵이 없어요.</p>
-        ) : (
+      {/* 끝까지 마친 월드컵이 없으면 이 칸은 아예 보이지 않는다(2026-11-28 사용자 지시) */}
+      {me.history.length > 0 && (
+        <section className="flex flex-col gap-3">
+          <h2 className="font-bold">나의 최종 1인</h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {me.history.map((h) => (
               <li key={h.gameId} className="overflow-hidden rounded-2xl bg-white/[.06] shadow-sm">
@@ -191,8 +196,8 @@ export default function MyWorldCup() {
               </li>
             ))}
           </ul>
-        )}
-      </section>
+        </section>
+      )}
     </Shell>
   );
 }

@@ -36,6 +36,9 @@ export const SCHEMA = [
     created_at timestamptz not null default now(),
     finished_at timestamptz
   )`,
+  // 얼굴 위치(아바타 자르기용, src/lib/face.ts 의 FaceBox). face_checked_at 이 비면 아직 찾아보지 않은 사진
+  `alter table candidates add column if not exists face real[]`,
+  `alter table candidates add column if not exists face_checked_at timestamptz`,
   // 앱 설정(관리자 비밀번호 해시 등)
   `create table if not exists settings (
     key text primary key,

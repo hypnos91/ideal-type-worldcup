@@ -4,7 +4,7 @@ import { useEffect, useEffectEvent, useRef, useState } from "react";
 import type { GameView, PublicCandidate } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { replay, roundLabel, summary, type CurrentMatch } from "@/lib/tournament";
-import { CandidateInfo, CandidatePhoto } from "./CandidateCard";
+import { CandidateInfo, CandidatePhoto, FaceAvatar } from "./CandidateCard";
 
 const PICK_DELAY_MS = 380;
 
@@ -118,7 +118,7 @@ export default function Game({ game, onDone }: { game: GameView; onDone: () => v
   }
 
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-6 sm:py-10">
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-6 sm:py-10">
       <div className="animate-pop flex flex-col gap-5 rounded-3xl border border-white/10 bg-card/80 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-8">
         {saveError}
         <Result game={game} picks={picks} saving={save.kind !== "idle"} onDone={onDone} />
@@ -232,27 +232,39 @@ function Result({
   const second = runnerUp ? game.candidates[runnerUp] : undefined;
 
   return (
-    <section className="flex flex-col items-center gap-6 text-center">
-      <div className="flex w-full flex-col items-center">
-        <p className="font-semibold text-accent">🏆 {game.size}강 최종 1인</p>
-        <div className="animate-pop mt-3 w-full max-w-xs overflow-hidden rounded-3xl bg-white/[.06] shadow-xl ring-4 ring-accent">
-          <CandidatePhoto c={champion} className="aspect-[3/4] w-full" />
-          <div className="px-3 py-4">
-            <CandidateInfo c={champion} size="lg" />
-          </div>
+    // 우승 카드·결승 상대·우승까지의 길·버튼을 모두 같은 폭으로(2026-11-28 사용자 지시)
+    <section className="flex w-full flex-col gap-5">
+      <p className="text-center font-semibold text-accent">🏆 {game.size}강 최종 1인</p>
+      <div className="animate-pop w-full overflow-hidden rounded-3xl bg-white/[.06] shadow-xl ring-4 ring-accent">
+        <CandidatePhoto c={champion} className="aspect-[4/5] w-full" />
+        <div className="px-3 py-4">
+          <CandidateInfo c={champion} size="lg" />
         </div>
-        {second && <p className="mt-3 text-sm text-muted">결승 상대: {second.name}</p>}
       </div>
 
-      <div className="w-full max-w-md">
+      {second && (
+        <div className="flex w-full items-center justify-between gap-3 rounded-xl bg-white/[.06] px-4 py-2.5 text-sm">
+          <span className="font-semibold">결승 상대</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <FaceAvatar c={second} size={28} />
+            <span className="truncate">{second.name}</span>
+          </span>
+        </div>
+      )}
+
+      <div className="w-full">
         <h2 className="mb-2 text-sm font-bold text-muted">우승까지의 길</h2>
         <ol className="flex flex-col gap-1.5">
           {path.map((m) => {
             const loser = game.candidates[m.a === m.winner ? m.b : m.a];
             return (
-              <li key={m.roundSize} className="flex items-center justify-between rounded-xl bg-white/[.06] px-4 py-2 text-sm">
-                <span className="font-semibold">{roundLabel(m.roundSize)}</span>
-                <span className="truncate text-muted">vs {loser.name}</span>
+              <li key={m.roundSize} className="flex items-center justify-between gap-3 rounded-xl bg-white/[.06] px-4 py-2 text-sm">
+                <span className="shrink-0 font-semibold">{roundLabel(m.roundSize)}</span>
+                <span className="flex min-w-0 items-center gap-2 text-muted">
+                  <span className="shrink-0">vs</span>
+                  <FaceAvatar c={loser} size={28} />
+                  <span className="truncate text-fg">{loser.name}</span>
+                </span>
               </li>
             );
           })}
@@ -262,7 +274,7 @@ function Result({
       <button
         onClick={onDone}
         disabled={saving}
-        className="w-full max-w-md rounded-2xl bg-accent py-3 font-bold text-white hover:brightness-110 disabled:opacity-50"
+        className="w-full rounded-2xl bg-accent py-3 font-bold text-white hover:brightness-110 disabled:opacity-50"
       >
         {saving ? "결과 저장 중…" : "내 월드컵으로"}
       </button>

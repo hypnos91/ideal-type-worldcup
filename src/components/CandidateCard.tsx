@@ -1,4 +1,5 @@
 import type { PublicCandidate } from "@/lib/api-types";
+import { faceCrop } from "@/lib/face";
 
 /** 후보 정보 한 줄: 키 · 국적 · 타이틀 · 나이 (2026-11-28 사용자 지시 순서, 이름과 소속 그룹은 그 위에) */
 export function candidateFacts(c: PublicCandidate): string {
@@ -32,5 +33,17 @@ export function CandidatePhoto({ c, className = "" }: { c: PublicCandidate; clas
   return (
     // eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 이미 줄인 사진이라 그대로 쓴다
     <img src={c.imageUrl} alt={c.name} draggable={false} className={`bg-line object-cover ${className}`} />
+  );
+}
+
+/** 얼굴만 잘라 보여 주는 동그란 아바타(서버가 찾은 얼굴 위치 기준, 못 찾았으면 위쪽 가운데) */
+export function FaceAvatar({ c, size = 32 }: { c: PublicCandidate; size?: number }) {
+  return (
+    <span
+      role="img"
+      aria-label={c.name}
+      className="inline-block shrink-0 rounded-full bg-line bg-no-repeat ring-1 ring-white/15"
+      style={{ width: size, height: size, backgroundImage: `url("${c.imageUrl}")`, ...faceCrop(c.face) }}
+    />
   );
 }
