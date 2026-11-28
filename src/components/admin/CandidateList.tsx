@@ -10,6 +10,7 @@ import { useAdminApiError } from "./AdminShell";
 import { PHOTO_ACCEPT, isPhotoFile } from "@/lib/image";
 import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
 import { LocalPreview, usePastedImage } from "./photoInput";
+import PhotoLightbox from "./PhotoLightbox";
 import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
 
 // 고정 열: 표 바탕색을 칠해 밑으로 지나가는 열이 비치지 않게 하고, 가로로 밀렸을 때만 경계 그림자
@@ -34,6 +35,7 @@ export default function CandidateList() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [editing, setEditing] = useState<AdminCandidate | null>(null);
+  const [viewing, setViewing] = useState<AdminCandidate | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const [edges, setEdges] = useState({ left: false, right: false });
@@ -183,8 +185,15 @@ export default function CandidateList() {
                 >
                   <td className={cn(PIN_LEFT, PIN_ROW_HOVER, "py-2 pr-3 align-middle")}>
                     <div className="flex items-center gap-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 줄인 사진 */}
-                      <img src={c.imageUrl} alt="" className={cn("h-12 w-9 shrink-0 rounded-md object-cover", !c.active && "opacity-50")} />
+                      <button
+                        type="button"
+                        onClick={() => setViewing(c)}
+                        aria-label={`${c.name} 사진 크게 보기`}
+                        className="shrink-0 cursor-zoom-in rounded-md transition hover:ring-2 hover:ring-sky-500 focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:outline-none"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- 업로드 단계에서 줄인 사진 */}
+                        <img src={c.imageUrl} alt="" className={cn("h-12 w-9 rounded-md object-cover", !c.active && "opacity-50")} />
+                      </button>
                       <span className="font-medium whitespace-nowrap">{c.name}</span>
                     </div>
                   </td>
@@ -217,6 +226,8 @@ export default function CandidateList() {
         </table>
       </div>
       <p className="text-xs text-neutral-500">숨긴 후보는 새 월드컵에 나오지 않지만, 이미 끝난 월드컵 기록에는 그대로 남아요.</p>
+
+      {viewing && <PhotoLightbox candidate={viewing} onClose={() => setViewing(null)} />}
 
       {editing && (
         <EditDialog
