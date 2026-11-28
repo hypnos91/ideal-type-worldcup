@@ -43,6 +43,8 @@ export const SCHEMA = [
   `alter table candidates add column if not exists photo_pending boolean not null default false`,
   // '나의 최종 1인' 목록에서 지운 판. 지울 때 counted 도 false 로 바꿔 그 판 후보를 다시 볼 수 있게 한다
   `alter table games add column if not exists history_hidden boolean not null default false`,
+  // 지운 기록은 제외 계산에서도 빠져야 한다. '목록에서만 지우던' 이전 버전에서 지운 기록을 맞춘다(여러 번 돌아도 같음)
+  `update games set counted = false where history_hidden and counted`,
   // 앱 설정(관리자 비밀번호 해시 등)
   `create table if not exists settings (
     key text primary key,
