@@ -68,6 +68,21 @@ export default function MyWorldCup() {
     }
   };
 
+  const [removing, setRemoving] = useState<string | null>(null);
+  /** '나의 최종 1인' 기록 지우기. 목록에서만 빠지고 그 판에 나온 후보는 계속 제외된다 */
+  const removeHistory = async (gameId: string, name: string) => {
+    if (!window.confirm(`${name} 기록을 지울까요?`)) return;
+    setRemoving(gameId);
+    try {
+      await api("/api/history", { method: "DELETE", body: { gameId } });
+      setMe((m) => (m ? { ...m, history: m.history.filter((h) => h.gameId !== gameId) } : m));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "지우지 못했어요");
+    } finally {
+      setRemoving(null);
+    }
+  };
+
   const logout = async () => {
     await api("/api/session", { method: "DELETE" }).catch(() => null);
     router.replace("/");
@@ -185,7 +200,16 @@ export default function MyWorldCup() {
           <h2 className="font-bold">나의 최종 1인</h2>
           <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {me.history.map((h) => (
-              <li key={h.gameId} className="overflow-hidden rounded-2xl bg-white/[.06] shadow-sm">
+              <li key={h.gameId} className={`relative overflow-hidden rounded-2xl bg-white/[.06] shadow-sm transition ${removing === h.gameId ? "opacity-40" : ""}`}>
+                <button
+                  onClick={() => void removeHistory(h.gameId, h.champion.name)}
+                  disabled={removing === h.gameId}
+                  aria-label={`${h.champion.name} 기록 지우기`}
+                  title="기록 지우기"
+                  className="absolute top-2 right-2 z-10 rounded-full bg-black/55 p-1.5 text-white/90 backdrop-blur transition hover:bg-black/75 hover:text-white"
+                >
+                  <X className="size-3.5" weight="bold" />
+                </button>
                 <CandidatePhoto c={h.champion} className="aspect-[3/4] w-full" />
                 <div className="flex flex-col gap-1 px-2 py-3">
                   <CandidateInfo c={h.champion} size="sm" />

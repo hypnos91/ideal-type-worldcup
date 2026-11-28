@@ -180,10 +180,22 @@ export async function getPlayingGame(db: Db, playerId: string): Promise<Game | n
 
 export async function listFinishedGames(db: Db, playerId: string): Promise<Game[]> {
   const rows = await db.query(
-    `select ${GAME_COLS} from games where player_id = $1 and status = 'finished' order by finished_at desc`,
+    `select ${GAME_COLS} from games where player_id = $1 and status = 'finished' and not history_hidden order by finished_at desc`,
     [playerId],
   );
   return rows.map(toGame);
+}
+
+/**
+ * '나의 최종 1인' 목록에서 기록 하나를 지운다(2026-11-28 사용자 지시). 목록에서만 빠지고, 그 판에 나온 후보는
+ * 계속 제외된다(이미 본 후보가 다시 나오지 않게). 본인 기록이 아니면 false.
+ */
+export async function hideFinishedGame(db: Db, playerId: string, gameId: string): Promise<boolean> {
+  const rows = await db.query(
+    `update games set history_hidden = true where id = $1 and player_id = $2 and status = 'finished' returning id`,
+    [gameId, playerId],
+  );
+  return rows.length > 0;
 }
 
 export type StartResult = { ok: true; game: Game } | { ok: false; reason: "bad_size" | "not_enough" };

@@ -41,6 +41,8 @@ export const SCHEMA = [
   `alter table candidates add column if not exists face_checked_at timestamptz`,
   // 실제 사진 대신 자리표시(이름 카드)로 올라간 후보. 관리자에서 사진을 바꾸면 false 가 된다
   `alter table candidates add column if not exists photo_pending boolean not null default false`,
+  // '나의 최종 1인' 목록에서 지운 판. 목록에서만 빠지고 제외 목록 계산(counted)에는 그대로 쓴다
+  `alter table games add column if not exists history_hidden boolean not null default false`,
   // 앱 설정(관리자 비밀번호 해시 등)
   `create table if not exists settings (
     key text primary key,

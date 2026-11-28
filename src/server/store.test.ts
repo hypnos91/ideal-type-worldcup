@@ -12,6 +12,7 @@ import {
   listFinishedGames,
   playableCandidateIds,
   resetSeen,
+  hideFinishedGame,
   savePicks,
   setFace,
   startGame,
@@ -134,6 +135,22 @@ describe("월드컵 판", () => {
     await resetSeen(db, p.id);
     expect(await playableCandidateIds(db, p.id)).toHaveLength(32);
     expect(await listFinishedGames(db, p.id)).toHaveLength(1);
+  });
+});
+
+describe("나의 최종 1인 지우기", () => {
+  it("목록에서만 빠지고 제외는 그대로, 남의 기록은 못 지운다", async () => {
+    await seed(40);
+    const p = await player();
+    const other = await findOrCreatePlayer(db, { email: "x@y.com", name: "남", age: 20 });
+    const s = await startGame(db, p.id, 32);
+    if (!s.ok || !other.ok) throw new Error();
+    await finish(p.id, s.game.id, s.game.entrants);
+    expect(await hideFinishedGame(db, other.player.id, s.game.id)).toBe(false);
+    expect(await listFinishedGames(db, p.id)).toHaveLength(1);
+    expect(await hideFinishedGame(db, p.id, s.game.id)).toBe(true);
+    expect(await listFinishedGames(db, p.id)).toHaveLength(0);
+    expect(await playableCandidateIds(db, p.id)).toHaveLength(8); // 40명 중 본 32명은 여전히 제외
   });
 });
 
