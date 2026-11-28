@@ -8,6 +8,8 @@ export interface Candidate extends CandidateInput {
   id: string;
   imageUrl: string;
   face: FaceBox | null;
+  /** 실제 사진이 아직 없음(자리표시 사진) */
+  photoPending: boolean;
   active: boolean;
   createdAt: string;
 }
@@ -32,7 +34,7 @@ export interface Game {
 
 type Row = Record<string, unknown>;
 
-const CANDIDATE_COLS = "id, name, group_name, title, height_cm, nationality, age, image_url, face, active, created_at";
+const CANDIDATE_COLS = "id, name, group_name, title, height_cm, nationality, age, image_url, face, photo_pending, active, created_at";
 const GAME_COLS = "id, size, entrants, picks, status, champion_id, created_at, finished_at";
 
 function toCandidate(r: Row): Candidate {
@@ -46,6 +48,7 @@ function toCandidate(r: Row): Candidate {
     age: Number(r.age),
     imageUrl: r.image_url as string,
     face: toFace(r.face),
+    photoPending: Boolean(r.photo_pending),
     active: Boolean(r.active),
     createdAt: iso(r.created_at)!,
   };
@@ -143,10 +146,11 @@ export async function updateCandidate(
     `update candidates c set name = $2, group_name = $3, title = $4, height_cm = $5, nationality = $6, age = $7, active = $8,
        image_url = coalesce($9, c.image_url),
        face = case when $9::text is null then c.face else $10::real[] end,
-       face_checked_at = case when $9::text is null then c.face_checked_at else now() end
+       face_checked_at = case when $9::text is null then c.face_checked_at else now() end,
+       photo_pending = case when $9::text is null then c.photo_pending else false end
      from (select id, image_url as old_image_url from candidates where id = $1) old
      where c.id = old.id
-     returning c.id, c.name, c.group_name, c.title, c.height_cm, c.nationality, c.age, c.image_url, c.face, c.active, c.created_at, old.old_image_url`,
+     returning c.id, c.name, c.group_name, c.title, c.height_cm, c.nationality, c.age, c.image_url, c.face, c.photo_pending, c.active, c.created_at, old.old_image_url`,
     [id, input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, active, photo?.imageUrl ?? null, photo?.face ?? null],
   );
   if (!row) return null;

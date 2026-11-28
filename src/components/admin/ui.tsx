@@ -69,12 +69,16 @@ export function Field({
 }
 
 /** 상태 칩 */
-export function Badge({ tone, children }: { tone: "neutral" | "brand"; children: React.ReactNode }) {
+export function Badge({ tone, children }: { tone: "neutral" | "brand" | "warn"; children: React.ReactNode }) {
   return (
     <span
       className={cn(
         "inline-flex h-6 items-center rounded-md px-2 text-xs font-medium",
-        tone === "brand" ? "bg-sky-500/10 text-sky-600 dark:text-sky-400" : "bg-black/[.06] text-neutral-600 dark:bg-white/15 dark:text-neutral-300",
+        tone === "brand"
+          ? "bg-sky-500/10 text-sky-600 dark:text-sky-400"
+          : tone === "warn"
+            ? "bg-red-600/10 text-red-600 dark:text-red-400"
+            : "bg-black/[.06] text-neutral-600 dark:bg-white/15 dark:text-neutral-300",
       )}
     >
       {children}

@@ -140,12 +140,15 @@ describe("월드컵 판", () => {
 describe("후보 수정", () => {
   it("사진을 바꾸면 예전 주소를 돌려주고, 안 바꾸면 null", async () => {
     const [id] = await seed(1);
+    await db.query(`update candidates set photo_pending = true where id = $1`, [id]);
     const same = await updateCandidate(db, id, { ...base, name: "새이름" }, true);
+    expect(same?.candidate.photoPending).toBe(true); // 정보만 고치면 그대로
     expect(same?.candidate.name).toBe("새이름");
     expect(same?.replacedImageUrl).toBeNull();
     const swapped = await updateCandidate(db, id, { ...base, name: "새이름" }, true, { imageUrl: "https://img/new.webp", face: [0.3, 0.2, 0.4, 0.3, 0.75] });
     expect(swapped?.candidate.imageUrl).toBe("https://img/new.webp");
     expect(swapped?.candidate.face).toEqual([0.3, 0.2, 0.4, 0.3, 0.75]);
+    expect(swapped?.candidate.photoPending).toBe(false);
     expect(swapped?.replacedImageUrl).toBe("https://img/0.jpg");
     expect(await updateCandidate(db, "없음", base as never, true)).toBeNull();
   });

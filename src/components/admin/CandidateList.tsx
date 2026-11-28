@@ -10,11 +10,13 @@ import { useAdminApiError } from "./AdminShell";
 import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
 import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
 
-type Filter = "all" | "active" | "hidden";
-const FILTERS: { key: Filter; label: string }[] = [
-  { key: "all", label: "전체" },
-  { key: "active", label: "표시 중" },
-  { key: "hidden", label: "숨김" },
+type Filter = "all" | "active" | "hidden" | "noPhoto";
+// '사진 필요': 실제 사진 대신 이름 카드로 올라간 후보만 모아 본다(2026-11-28 사용자 지시)
+const FILTERS: { key: Filter; label: string; match: (c: AdminCandidate) => boolean }[] = [
+  { key: "all", label: "전체", match: () => true },
+  { key: "active", label: "표시 중", match: (c) => c.active },
+  { key: "hidden", label: "숨김", match: (c) => !c.active },
+  { key: "noPhoto", label: "사진 필요", match: (c) => c.photoPending },
 ];
 
 export default function CandidateList() {
@@ -57,7 +59,7 @@ export default function CandidateList() {
   const q = search.trim().toLowerCase();
   const rows = all.filter(
     (c) =>
-      (filter === "all" || (filter === "active") === c.active) &&
+      FILTERS.find((f) => f.key === filter)!.match(c) &&
       (!q || [c.name, c.groupName ?? "", c.title, c.nationality].some((v) => v.toLowerCase().includes(q))),
   );
 
@@ -99,6 +101,14 @@ export default function CandidateList() {
               )}
             >
               {f.label}
+              <span
+                className={cn(
+                  "ml-1.5 tabular-nums",
+                  f.key === "noPhoto" && all.some(f.match) ? "rounded bg-red-600/15 px-1.5 text-red-600 dark:text-red-400" : "text-neutral-400",
+                )}
+              >
+                {all.filter(f.match).length}
+              </span>
             </button>
           ))}
         </div>
@@ -140,7 +150,12 @@ export default function CandidateList() {
                   <td className="px-3 align-middle whitespace-nowrap">{c.nationality}</td>
                   <td className="px-3 align-middle whitespace-nowrap">{c.title}</td>
                   <td className="px-3 text-right align-middle tabular-nums">{c.age}세</td>
-                  <td className="px-3 align-middle">{c.active ? <Badge tone="brand">표시 중</Badge> : <Badge tone="neutral">숨김</Badge>}</td>
+                  <td className="px-3 align-middle">
+                    <div className="flex flex-wrap gap-1">
+                      {c.active ? <Badge tone="brand">표시 중</Badge> : <Badge tone="neutral">숨김</Badge>}
+                      {c.photoPending && <Badge tone="warn">사진 필요</Badge>}
+                    </div>
+                  </td>
                   <td className="px-3 align-middle whitespace-nowrap text-neutral-500 tabular-nums">{new Date(c.createdAt).toLocaleDateString("ko-KR")}</td>
                   <td className="py-2 pl-3 text-right align-middle whitespace-nowrap">
                     <div className="flex justify-end gap-1">

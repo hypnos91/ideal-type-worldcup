@@ -15,6 +15,7 @@ export interface PublicCandidate {
 
 export interface AdminCandidate extends PublicCandidate {
   active: boolean;
+  photoPending: boolean;
   createdAt: string;
 }
 
