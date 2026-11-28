@@ -126,7 +126,8 @@ export default function Game({ game, onDone }: { game: GameView; onDone: () => v
 }
 
 /**
- * 대결 화면: 화면 전체를 좌우 같은 비율로 나눠 두 후보 사진을 꽉 채운다(2026-11-28 사용자 지시).
+ * 대결 화면: 화면 전체를 같은 비율로 나눠 두 후보 사진을 꽉 채운다(2026-11-28 사용자 지시).
+ * 모바일(세로 화면)은 위아래, sm(640px) 이상은 좌우로 나눈다.
  * 사진은 칸을 덮도록 잘리고(object-cover), 정보는 아래쪽 그라데이션 위에 얹는다.
  */
 function FullscreenMatch({
@@ -151,7 +152,7 @@ function FullscreenMatch({
   notice: React.ReactNode;
 }) {
   return (
-    <div className="fixed inset-0 z-40 grid grid-cols-2 gap-0.5 bg-black text-white select-none">
+    <div className="fixed inset-0 z-40 grid grid-rows-2 gap-0.5 bg-black text-white select-none sm:grid-cols-2 sm:grid-rows-1">
       {[current.a, current.b].map((id) => {
         const c = byId[id];
         const state = chosen === null ? "idle" : chosen === id ? "chosen" : "lost";
@@ -161,7 +162,7 @@ function FullscreenMatch({
             onClick={() => onChoose(id)}
             disabled={state !== "idle"}
             aria-label={`${c.name} 선택`}
-            className="group relative h-full min-w-0 overflow-hidden"
+            className="group relative h-full min-h-0 min-w-0 overflow-hidden"
           >
             <CandidatePhoto
               c={c}
@@ -170,7 +171,7 @@ function FullscreenMatch({
               }`}
             />
             {state === "chosen" && <span aria-hidden className="absolute inset-0 ring-8 ring-accent ring-inset" />}
-            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pt-32 pb-[max(1.5rem,env(safe-area-inset-bottom))] sm:pb-10">
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 via-black/55 to-transparent px-3 pt-20 pb-4 sm:pt-32 sm:pb-10">
               <CandidateInfo c={c} size="xl" onPhoto />
             </div>
           </button>
@@ -205,7 +206,7 @@ function FullscreenMatch({
         {notice && <div className="pointer-events-auto mx-auto mt-2 w-fit max-w-[92%]">{notice}</div>}
       </div>
 
-      <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-3 py-2 text-sm font-black text-black shadow-xl sm:px-5 sm:py-4 sm:text-2xl">
+      <span className="pointer-events-none absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white px-4 py-2 text-base font-black text-black shadow-xl sm:px-5 sm:py-4 sm:text-2xl">
         VS
       </span>
     </div>

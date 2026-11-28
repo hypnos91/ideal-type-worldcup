@@ -1,4 +1,6 @@
 import type { Metadata, Viewport } from "next";
+// 기본 글꼴: Pretendard Variable (2026-11-28 사용자 지시). dynamic subset 이라 화면에 쓰인 글자 범위의 조각만 받는다.
+import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
 import "./globals.css";
 
 export const metadata: Metadata = {
