@@ -17,6 +17,7 @@
     "@tensorflow/tfjs-backend-wasm": "4.22.0",
     "@vercel/blob": "^2.9.0",
     "@vladmandic/face-api": "1.7.15",
+    "heic-decode": "2.1.0",
     "next": "16.4.6",
     "pretendard": "1.3.9",
     "react": "19.3.0",

@@ -4,12 +4,13 @@ import { DownloadSimple, FileXls, ImageSquare, Trash, UploadSimple } from "@phos
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { bulkTemplateCsv, fileKey, parseBulk, rowsToBulk, BULK_COLUMNS, type BulkRow } from "@/lib/bulk";
+import { PHOTO_ACCEPT, formatBytes, isPhotoFile } from "@/lib/image";
 import { parseCandidate } from "@/lib/validation";
 import { useAdminApiError } from "./AdminShell";
 import { CandidateFieldsForm, EMPTY_FIELDS, FIELD_DEFS, createCandidate, type CandidateFields } from "./candidateFields";
+import { LocalPreview, usePastedImage } from "./photoInput";
 import { Badge, Button, Notice, PageHeader, buttonClass, cn, inputClass } from "./ui";
 
-const ACCEPT = "image/jpeg,image/png,image/webp";
 const PARALLEL = 3;
 
 export default function CandidateUpload() {
@@ -58,12 +59,16 @@ function SingleUpload() {
 
   useEffect(() => () => void (preview && URL.revokeObjectURL(preview)), [preview]);
 
-  const pick = (f: File | undefined) => {
+  const pick = (f: File | null | undefined) => {
     if (!f) return;
+    if (!isPhotoFile(f)) return setError("이미지 파일만 쓸 수 있어요");
+    setError(null);
     setFile(f);
     setPreview(URL.createObjectURL(f));
     setDone(null);
   };
+
+  usePastedImage(pick, !busy);
 
   const submit = async () => {
     if (!file) return setError("사진을 골라 주세요");
@@ -72,8 +77,8 @@ function SingleUpload() {
     setBusy(true);
     setError(null);
     try {
-      const c = await createCandidate(file, fields);
-      setDone(`${c.name} 등록 완료`);
+      const { candidate: c, bytes } = await createCandidate(file, fields);
+      setDone(`${c.name} 등록 완료 · 원본 ${formatBytes(file.size)} → WebP ${formatBytes(bytes)}`);
       setFile(null);
       setPreview(null);
       setFields(EMPTY_FIELDS);
@@ -97,16 +102,15 @@ function SingleUpload() {
         className="flex aspect-[3/4] w-full shrink-0 flex-col items-center justify-center gap-2 overflow-hidden rounded-2xl border border-dashed border-neutral-300 bg-neutral-50 text-sm text-neutral-500 hover:bg-neutral-100 md:w-56 dark:border-neutral-700 dark:bg-neutral-800/40"
       >
         {preview ? (
-          // eslint-disable-next-line @next/next/no-img-element -- 로컬 미리보기
-          <img src={preview} alt="" className="size-full object-cover" />
+          <LocalPreview src={preview} name={file?.name} className="size-full" />
         ) : (
           <>
             <ImageSquare className="size-8" />
-            사진 선택 또는 끌어다 놓기
+            사진 선택 · 끌어다 놓기 · 붙여넣기
           </>
         )}
       </button>
-      <input ref={input} type="file" accept={ACCEPT} className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
+      <input ref={input} type="file" accept={PHOTO_ACCEPT} className="hidden" onChange={(e) => pick(e.target.files?.[0])} />
 
       <div className="flex min-w-0 flex-1 flex-col gap-4">
         <CandidateFieldsForm value={fields} onChange={setFields} />
@@ -136,6 +140,8 @@ type Row = {
   fields: CandidateFields;
   status: "ready" | "uploading" | "done" | "error";
   error?: string;
+  /** 저장된 WebP 크기 */
+  bytes?: number;
 };
 
 function BulkUpload() {
@@ -158,7 +164,7 @@ function BulkUpload() {
 
   const addFiles = (files: FileList | File[]) => {
     const added: Row[] = Array.from(files)
-      .filter((f) => ACCEPT.split(",").includes(f.type))
+      .filter(isPhotoFile)
       .map((file) => {
         const info = sheet?.data.get(fileKey(file.name));
         return {
@@ -231,8 +237,8 @@ function BulkUpload() {
       for (let r = queue.shift(); r; r = queue.shift()) {
         patch(r.key, { status: "uploading", error: undefined });
         try {
-          await createCandidate(r.file, r.fields);
-          patch(r.key, { status: "done" });
+          const { bytes } = await createCandidate(r.file, r.fields);
+          patch(r.key, { status: "done", bytes });
         } catch (e) {
           patch(r.key, { status: "error", error: onApiError(e) });
         }
@@ -338,7 +344,7 @@ function BulkUpload() {
         <input
           ref={input}
           type="file"
-          accept={ACCEPT}
+          accept={PHOTO_ACCEPT}
           multiple
           className="hidden"
           onChange={(e) => {
@@ -387,8 +393,7 @@ function BulkUpload() {
                 {rows.map((r) => (
                   <tr key={r.key} className="border-b border-neutral-200 align-top dark:border-neutral-800">
                     <td className="py-2 pr-3">
-                      {/* eslint-disable-next-line @next/next/no-img-element -- 로컬 미리보기 */}
-                      <img src={r.preview} alt="" className="h-12 w-9 rounded-md object-cover" />
+                      <LocalPreview src={r.preview} className="h-12 w-9 rounded-md" />
                       <span className="mt-1 block max-w-[72px] truncate text-[11px] text-neutral-500" title={r.file.name}>
                         {r.file.name}
                       </span>
@@ -407,7 +412,7 @@ function BulkUpload() {
                     ))}
                     <td className="px-2 py-2">
                       {r.status === "done" ? (
-                        <Badge tone="brand">완료</Badge>
+                        <Badge tone="brand">완료 · WebP {formatBytes(r.bytes ?? 0)}</Badge>
                       ) : r.status === "uploading" ? (
                         <Badge tone="neutral">올리는 중</Badge>
                       ) : r.status === "error" ? (

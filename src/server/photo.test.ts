@@ -24,3 +24,20 @@ describe("toWebp", () => {
     expect((await toWebp(Buffer.from("not an image"))).ok).toBe(false);
   });
 });
+
+describe("HEIC", () => {
+  it("HEVC 브랜드만 HEIC 로 본다(AVIF 는 sharp 가 직접 읽음)", async () => {
+    const { isHevcHeif } = await import("./photo");
+    const box = (brand: string) => Buffer.concat([Buffer.from([0, 0, 0, 24]), Buffer.from("ftyp" + brand), Buffer.alloc(12)]);
+    expect(isHevcHeif(box("heic"))).toBe(true);
+    expect(isHevcHeif(box("mif1"))).toBe(true);
+    expect(isHevcHeif(box("avif"))).toBe(false);
+    expect(isHevcHeif(Buffer.from("not an image at all"))).toBe(false);
+  });
+  it.runIf(process.env.HEIC_SAMPLE)("아이폰 HEIC 사진을 WebP 로 바꾼다", async () => {
+    const fs = await import("node:fs");
+    const r = await toWebp(fs.readFileSync(process.env.HEIC_SAMPLE!));
+    expect(r.ok).toBe(true);
+    if (r.ok) expect((await sharp(r.data).metadata()).format).toBe("webp");
+  });
+});

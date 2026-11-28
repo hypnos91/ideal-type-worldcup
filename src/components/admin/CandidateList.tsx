@@ -7,7 +7,9 @@ import type { AdminCandidate } from "@/lib/api-types";
 import { api } from "@/lib/client-api";
 import { parseCandidate } from "@/lib/validation";
 import { useAdminApiError } from "./AdminShell";
+import { PHOTO_ACCEPT, isPhotoFile } from "@/lib/image";
 import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
+import { LocalPreview, usePastedImage } from "./photoInput";
 import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
 
 type Filter = "all" | "active" | "hidden" | "noPhoto";
@@ -209,6 +211,15 @@ function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate
 
   useEffect(() => () => void (photo && URL.revokeObjectURL(photo.preview)), [photo]);
 
+  const choose = (f: File | null | undefined) => {
+    if (!f) return;
+    if (!isPhotoFile(f)) return setError("이미지 파일만 쓸 수 있어요");
+    setError(null);
+    setPhoto({ file: f, preview: URL.createObjectURL(f) });
+  };
+  // 클립보드에 복사한 이미지 붙여넣기(2026-11-28 사용자 지시)
+  usePastedImage(choose, !busy);
+
   const save = async () => {
     const parsed = parseCandidate(fields);
     if (!parsed.ok) return setError(parsed.error);
@@ -243,20 +254,30 @@ function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate
       }
     >
       <div className="flex flex-col gap-4 pb-2">
-        <div className="flex items-end justify-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element -- 미리보기 */}
-          <img src={photo?.preview ?? candidate.imageUrl} alt="" className="h-40 w-30 rounded-xl object-cover" />
-          <Button variant="outlined" size="sm" onClick={() => fileInput.current?.click()}>
-            사진 바꾸기
-          </Button>
+        <div
+          className="flex items-end justify-center gap-3"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault();
+            choose(e.dataTransfer.files[0]);
+          }}
+        >
+          <LocalPreview src={photo?.preview ?? candidate.imageUrl} name={photo?.file.name} className="h-40 w-30 rounded-xl" />
+          <div className="flex flex-col items-start gap-1.5">
+            <Button variant="outlined" size="sm" onClick={() => fileInput.current?.click()}>
+              사진 바꾸기
+            </Button>
+            <span className="text-xs text-neutral-500">
+              {photo ? "저장하면 WebP 로 압축돼요" : "복사한 이미지는 ⌘/Ctrl+V 로 붙여넣기"}
+            </span>
+          </div>
           <input
             ref={fileInput}
             type="file"
-            accept="image/jpeg,image/png,image/webp"
+            accept={PHOTO_ACCEPT}
             className="hidden"
             onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) setPhoto({ file: f, preview: URL.createObjectURL(f) });
+              choose(e.target.files?.[0]);
               e.target.value = "";
             }}
           />

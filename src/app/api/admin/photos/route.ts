@@ -22,6 +22,9 @@ export async function POST(req: NextRequest) {
       contentType: "image/webp",
       cacheControlMaxAge: 60 * 60 * 24 * 365, // 주소가 매번 새로 생기므로 오래 캐시해도 된다
     });
-    return json({ url: blob.url, face, width: converted.width, height: converted.height, bytes: converted.data.length }, 201);
+    return json(
+      { url: blob.url, face, width: converted.width, height: converted.height, bytes: converted.data.length, inputBytes: file.size },
+      201,
+    );
   });
 }

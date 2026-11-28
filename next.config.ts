@@ -9,7 +9,7 @@ const FACE_FILES = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
-  serverExternalPackages: ["@vladmandic/face-api", "@tensorflow/tfjs", "@tensorflow/tfjs-backend-wasm"],
+  serverExternalPackages: ["@vladmandic/face-api", "@tensorflow/tfjs", "@tensorflow/tfjs-backend-wasm", "heic-decode", "libheif-js"],
   outputFileTracingIncludes: {
     "/api/admin/photos": FACE_FILES,
     "/api/admin/faces": FACE_FILES,
