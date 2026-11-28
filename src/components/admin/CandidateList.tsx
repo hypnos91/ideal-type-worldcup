@@ -2,12 +2,12 @@
 
 import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AdminCandidate } from "@/lib/api-types";
 import { api } from "@/lib/client-api";
 import { parseCandidate } from "@/lib/validation";
 import { useAdminApiError } from "./AdminShell";
-import { CandidateFieldsForm, toFields, type CandidateFields } from "./candidateFields";
+import { CandidateFieldsForm, toFields, uploadPhoto, type CandidateFields } from "./candidateFields";
 import { Badge, Button, Dialog, Notice, PageHeader, buttonClass, cn } from "./ui";
 
 type Filter = "all" | "active" | "hidden";
@@ -186,16 +186,26 @@ function EmptyRow({ children }: { children: React.ReactNode }) {
 
 function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate; onClose: () => void; onSaved: (c: AdminCandidate) => void }) {
   const onApiError = useAdminApiError();
+  const fileInput = useRef<HTMLInputElement>(null);
   const [fields, setFields] = useState<CandidateFields>(() => toFields(candidate));
+  const [photo, setPhoto] = useState<{ file: File; preview: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => () => void (photo && URL.revokeObjectURL(photo.preview)), [photo]);
 
   const save = async () => {
     const parsed = parseCandidate(fields);
     if (!parsed.ok) return setError(parsed.error);
     setBusy(true);
     try {
-      onSaved(await api<AdminCandidate>("/api/admin/candidates", { method: "PUT", body: { id: candidate.id, active: candidate.active, ...parsed.value } }));
+      const imageUrl = photo ? await uploadPhoto(photo.file) : undefined;
+      onSaved(
+        await api<AdminCandidate>("/api/admin/candidates", {
+          method: "PUT",
+          body: { id: candidate.id, active: candidate.active, imageUrl, ...parsed.value },
+        }),
+      );
     } catch (e) {
       setError(onApiError(e));
       setBusy(false);
@@ -212,14 +222,30 @@ function EditDialog({ candidate, onClose, onSaved }: { candidate: AdminCandidate
             취소
           </Button>
           <Button onClick={() => void save()} disabled={busy}>
-            저장
+            {busy ? "저장 중…" : "저장"}
           </Button>
         </>
       }
     >
       <div className="flex flex-col gap-4 pb-2">
-        {/* eslint-disable-next-line @next/next/no-img-element -- 미리보기 */}
-        <img src={candidate.imageUrl} alt="" className="h-40 w-30 self-center rounded-xl object-cover" />
+        <div className="flex items-end justify-center gap-3">
+          {/* eslint-disable-next-line @next/next/no-img-element -- 미리보기 */}
+          <img src={photo?.preview ?? candidate.imageUrl} alt="" className="h-40 w-30 rounded-xl object-cover" />
+          <Button variant="outlined" size="sm" onClick={() => fileInput.current?.click()}>
+            사진 바꾸기
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) setPhoto({ file: f, preview: URL.createObjectURL(f) });
+              e.target.value = "";
+            }}
+          />
+        </div>
         <CandidateFieldsForm value={fields} onChange={setFields} />
         {error && <Notice tone="error">{error}</Notice>}
       </div>

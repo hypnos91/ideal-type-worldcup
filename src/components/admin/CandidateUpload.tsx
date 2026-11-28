@@ -1,9 +1,9 @@
 "use client";
 
-import { DownloadSimple, ImageSquare, Trash, UploadSimple } from "@phosphor-icons/react";
+import { DownloadSimple, FileXls, ImageSquare, Trash, UploadSimple } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { bulkTemplateCsv, fileKey, parseBulk, BULK_COLUMNS } from "@/lib/bulk";
+import { bulkTemplateCsv, fileKey, parseBulk, rowsToBulk, BULK_COLUMNS, type BulkRow } from "@/lib/bulk";
 import { parseCandidate } from "@/lib/validation";
 import { useAdminApiError } from "./AdminShell";
 import { CandidateFieldsForm, EMPTY_FIELDS, FIELD_DEFS, createCandidate, type CandidateFields } from "./candidateFields";
@@ -142,8 +142,11 @@ function BulkUpload() {
   const onApiError = useAdminApiError();
   const input = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<Row[]>([]);
+  const sheetInput = useRef<HTMLInputElement>(null);
   const [paste, setPaste] = useState("");
-  const [pasteResult, setPasteResult] = useState<string | null>(null);
+  // 불러온 정보(엑셀 파일·붙여넣기). 사진을 나중에 추가해도 파일명이 맞으면 자동으로 채운다.
+  const [sheet, setSheet] = useState<{ label: string; data: Map<string, BulkRow> } | null>(null);
+  const [sheetError, setSheetError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const rowsRef = useRef(rows);
   useEffect(() => {
@@ -156,13 +159,16 @@ function BulkUpload() {
   const addFiles = (files: FileList | File[]) => {
     const added: Row[] = Array.from(files)
       .filter((f) => ACCEPT.split(",").includes(f.type))
-      .map((file) => ({
-        key: crypto.randomUUID(),
-        file,
-        preview: URL.createObjectURL(file),
-        fields: { ...EMPTY_FIELDS, name: file.name.normalize("NFC").replace(/\.[^.]+$/, "").slice(0, 40) },
-        status: "ready",
-      }));
+      .map((file) => {
+        const info = sheet?.data.get(fileKey(file.name));
+        return {
+          key: crypto.randomUUID(),
+          file,
+          preview: URL.createObjectURL(file),
+          fields: info ? { ...info } : { ...EMPTY_FIELDS, name: file.name.normalize("NFC").replace(/\.[^.]+$/, "").slice(0, 40) },
+          status: "ready",
+        };
+      });
     setRows((r) => [...r, ...added]);
   };
 
@@ -174,17 +180,33 @@ function BulkUpload() {
       return rs.filter((r) => r.key !== key);
     });
 
-  const applyPaste = () => {
-    const data = parseBulk(paste);
-    let matched = 0;
-    const next = rows.map((r) => {
-      const info = data.get(fileKey(r.file.name));
-      if (!info || r.status === "done" || r.status === "uploading") return r;
-      matched++;
-      return { ...r, fields: { ...info }, status: "ready" as const, error: undefined };
-    });
-    setRows(next);
-    setPasteResult(`${data.size}줄 중 ${matched}개 사진에 정보를 채웠어요.${data.size > matched ? " 파일명이 맞지 않는 줄은 건너뛰었어요." : ""}`);
+  /** 불러온 정보를 지금 있는 사진 줄에 채우고, 나중에 추가할 사진을 위해 기억해 둔다 */
+  const applySheet = (label: string, data: Map<string, BulkRow>) => {
+    setSheet({ label, data });
+    setSheetError(null);
+    setRows((rs) =>
+      rs.map((r) => {
+        const info = data.get(fileKey(r.file.name));
+        if (!info || r.status === "done" || r.status === "uploading") return r;
+        return { ...r, fields: { ...info }, status: "ready" as const, error: undefined };
+      }),
+    );
+  };
+
+  const loadSheetFile = async (file: File) => {
+    try {
+      let data: Map<string, BulkRow>;
+      if (/\.csv$/i.test(file.name)) data = parseBulk(await file.text());
+      else {
+        const { readSheet } = await import("read-excel-file/browser");
+        data = rowsToBulk(await readSheet(file));
+      }
+      if (data.size === 0) throw new Error("읽을 수 있는 줄이 없어요. 첫 시트에 파일명 열이 있는지 확인해 주세요.");
+      applySheet(file.name, data);
+    } catch (e) {
+      setSheet(null);
+      setSheetError(e instanceof Error && e.message.includes("줄이 없어요") ? e.message : "엑셀 파일을 읽지 못했어요. .xlsx 또는 .csv 파일인지 확인해 주세요.");
+    }
   };
 
   const downloadTemplate = () => {
@@ -227,15 +249,78 @@ function BulkUpload() {
     });
 
   const count = (s: Row["status"]) => rows.filter((r) => r.status === s).length;
+  const rowKeys = new Set(rows.map((r) => fileKey(r.file.name)));
+  const sheetMatched = sheet ? [...sheet.data.keys()].filter((k) => rowKeys.has(k)).length : 0;
   const pending = rows.length - count("done");
 
   return (
     <div className="flex flex-col gap-6">
       <ol className="flex flex-col gap-1 text-sm text-neutral-600 dark:text-neutral-400">
-        <li>1. 사진을 여러 장 고르거나 끌어다 놓아요. 파일 이름이 이름 칸에 먼저 들어가요.</li>
-        <li>2. 정보는 표에서 바로 고치거나, 엑셀·구글 시트에서 표를 복사해 붙여넣으면 파일명이 같은 줄에 채워져요.</li>
-        <li>3. ‘모두 등록’을 누르면 맞게 입력된 줄부터 올라가요. 틀린 줄은 빨간 문구로 알려 줘요.</li>
+        <li>1. 엑셀 양식에 파일명·이름·소속그룹·타이틀·키·국적·나이를 채워 불러와요(엑셀·시트 표를 붙여넣어도 돼요).</li>
+        <li>2. 사진을 여러 장 고르거나 끌어다 놓아요. 파일명이 같은 줄의 정보가 자동으로 채워져요. 순서는 바뀌어도 돼요.</li>
+        <li>3. 표에서 확인·수정한 뒤 ‘모두 등록’을 누르면 맞게 입력된 줄부터 올라가요. 사진은 서버에서 WebP 로 바꿔 저장해요.</li>
       </ol>
+
+      <section className="flex flex-col gap-3 rounded-2xl border border-neutral-200 p-4 dark:border-neutral-800">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-semibold">후보 정보 파일</h2>
+          <div className="flex flex-wrap gap-2">
+            <a href="/candidate-template.xlsx" download className={buttonClass("ghost", "sm")}>
+              <DownloadSimple />
+              엑셀 양식 내려받기
+            </a>
+            {rows.length > 0 && (
+              <button onClick={downloadTemplate} className={buttonClass("ghost", "sm")}>
+                <DownloadSimple />
+                선택한 사진으로 양식 만들기 (CSV)
+              </button>
+            )}
+            <Button variant="outlined" size="sm" onClick={() => sheetInput.current?.click()}>
+              <FileXls />
+              엑셀 파일 불러오기
+            </Button>
+            <input
+              ref={sheetInput}
+              type="file"
+              accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void loadSheetFile(f);
+                e.target.value = "";
+              }}
+            />
+          </div>
+        </div>
+        <p className="text-xs text-neutral-500">
+          열: {BULK_COLUMNS.join(" · ")} — 첫 줄은 머리글, 열 순서는 달라도 돼요. 소속 그룹이 없으면 비워 두고, 키는 cm 숫자, 나이는 숫자만.
+        </p>
+        {sheet && (
+          <Notice>
+            <span className="font-medium">{sheet.label}</span>: {sheet.data.size}명 정보를 읽었어요. 사진 {rows.length}장 중 {sheetMatched}장과 파일명이
+            맞아요.
+            {sheet.data.size > sheetMatched && ` 사진이 아직 없는 정보 ${sheet.data.size - sheetMatched}줄은 사진을 추가하면 채워져요.`}
+          </Notice>
+        )}
+        {sheetError && <Notice tone="error">{sheetError}</Notice>}
+        <details>
+          <summary className="cursor-pointer text-sm text-neutral-600 dark:text-neutral-400">엑셀·시트에서 표를 복사해 붙여넣기</summary>
+          <div className="mt-3 flex flex-col gap-2">
+            <textarea
+              value={paste}
+              onChange={(e) => setPaste(e.target.value)}
+              rows={5}
+              placeholder={"파일명\t이름\t소속그룹\t타이틀\t키\t국적\t나이\nphoto01.jpg\t홍길동\t\t배우\t180\t대한민국\t28"}
+              className={cn(inputClass, "h-auto py-2 font-mono text-xs")}
+            />
+            <div className="flex justify-end">
+              <Button size="sm" variant="tonal" onClick={() => applySheet("붙여넣은 표", parseBulk(paste))} disabled={!paste.trim()}>
+                표에 채우기
+              </Button>
+            </div>
+          </div>
+        </details>
+      </section>
 
       <div
         onDragOver={(e) => e.preventDefault()}
@@ -265,32 +350,6 @@ function BulkUpload() {
 
       {rows.length > 0 && (
         <>
-          <details className="rounded-xl border border-neutral-200 p-4 dark:border-neutral-800">
-            <summary className="cursor-pointer text-sm font-medium">엑셀·시트에서 붙여넣기</summary>
-            <div className="mt-3 flex flex-col gap-3">
-              <p className="text-xs text-neutral-500">
-                열 순서: {BULK_COLUMNS.join(" · ")} (첫 줄 머리글은 있어도 되고 없어도 돼요). 소속 그룹이 없으면 칸을 비워 두세요.
-              </p>
-              <textarea
-                value={paste}
-                onChange={(e) => setPaste(e.target.value)}
-                rows={5}
-                placeholder={"파일명\t이름\t소속그룹\t타이틀\t키\t국적\t나이\nphoto01.jpg\t홍길동\t\t배우\t180\t대한민국\t28"}
-                className={cn(inputClass, "h-auto py-2 font-mono text-xs")}
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <button onClick={downloadTemplate} className={buttonClass("ghost", "sm")}>
-                  <DownloadSimple />
-                  선택한 사진으로 양식 내려받기 (CSV)
-                </button>
-                <Button size="sm" variant="tonal" onClick={applyPaste} disabled={!paste.trim()}>
-                  표에 채우기
-                </Button>
-              </div>
-              {pasteResult && <Notice>{pasteResult}</Notice>}
-            </div>
-          </details>
-
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="text-sm text-neutral-500">
               {rows.length}장 · 완료 {count("done")} · 오류 {count("error")}

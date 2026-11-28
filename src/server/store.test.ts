@@ -133,3 +133,16 @@ describe("월드컵 판", () => {
     expect(await listFinishedGames(db, p.id)).toHaveLength(1);
   });
 });
+
+describe("후보 수정", () => {
+  it("사진을 바꾸면 예전 주소를 돌려주고, 안 바꾸면 null", async () => {
+    const [id] = await seed(1);
+    const same = await updateCandidate(db, id, { ...base, name: "새이름" }, true);
+    expect(same?.candidate.name).toBe("새이름");
+    expect(same?.replacedImageUrl).toBeNull();
+    const swapped = await updateCandidate(db, id, { ...base, name: "새이름" }, true, "https://img/new.webp");
+    expect(swapped?.candidate.imageUrl).toBe("https://img/new.webp");
+    expect(swapped?.replacedImageUrl).toBe("https://img/0.jpg");
+    expect(await updateCandidate(db, "없음", base as never, true)).toBeNull();
+  });
+});

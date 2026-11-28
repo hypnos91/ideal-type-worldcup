@@ -119,18 +119,27 @@ export async function addCandidate(db: Db, input: CandidateInput, imageUrl: stri
   return toCandidate(row);
 }
 
+export type UpdateCandidateResult = { candidate: Candidate; replacedImageUrl: string | null } | null;
+
+/** 후보 정보 수정. imageUrl 을 주면 사진도 바꾸고, 바뀌기 전 사진 주소를 돌려준다(저장소에서 지우는 건 호출한 쪽). */
 export async function updateCandidate(
   db: Db,
   id: string,
   input: CandidateInput,
   active: boolean,
-): Promise<Candidate | null> {
-  const [row] = await db.query(
-    `update candidates set name = $2, group_name = $3, title = $4, height_cm = $5, nationality = $6, age = $7, active = $8
-     where id = $1 returning ${CANDIDATE_COLS}`,
-    [id, input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, active],
+  imageUrl?: string,
+): Promise<UpdateCandidateResult> {
+  const [row] = await db.query<Row & { old_image_url: string }>(
+    `update candidates c set name = $2, group_name = $3, title = $4, height_cm = $5, nationality = $6, age = $7, active = $8,
+       image_url = coalesce($9, c.image_url)
+     from (select id, image_url as old_image_url from candidates where id = $1) old
+     where c.id = old.id
+     returning c.id, c.name, c.group_name, c.title, c.height_cm, c.nationality, c.age, c.image_url, c.active, c.created_at, old.old_image_url`,
+    [id, input.name, input.groupName, input.title, input.heightCm, input.nationality, input.age, active, imageUrl ?? null],
   );
-  return row ? toCandidate(row) : null;
+  if (!row) return null;
+  const candidate = toCandidate(row);
+  return { candidate, replacedImageUrl: row.old_image_url !== candidate.imageUrl ? row.old_image_url : null };
 }
 
 /* ───────── 월드컵 판 ───────── */

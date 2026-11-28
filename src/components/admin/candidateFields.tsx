@@ -1,8 +1,7 @@
 "use client";
 
-import { upload } from "@vercel/blob/client";
 import type { AdminCandidate } from "@/lib/api-types";
-import { api } from "@/lib/client-api";
+import { ApiError, api } from "@/lib/client-api";
 import { shrinkImage } from "@/lib/image";
 import { parseCandidate } from "@/lib/validation";
 import { Field, inputClass } from "./ui";
@@ -66,11 +65,29 @@ export function CandidateFieldsForm({
   );
 }
 
-/** 사진을 줄여 Blob 에 올리고 후보로 등록한다. 입력이 틀리면 업로드 전에 거절한다. */
+/**
+ * 사진 올리기. 브라우저에서 먼저 줄여 전송량을 줄이고, 서버가 항상 WebP 로 다시 변환해 저장한다.
+ * 돌려받는 주소는 언제나 .webp 다.
+ */
+export async function uploadPhoto(file: File): Promise<string> {
+  const small = await shrinkImage(file);
+  const form = new FormData();
+  form.append("file", small);
+  let res: Response;
+  try {
+    res = await fetch("/api/admin/photos", { method: "POST", body: form });
+  } catch {
+    throw new ApiError("네트워크 연결을 확인해 주세요", 0);
+  }
+  const data = (await res.json().catch(() => null)) as { url?: string; error?: string } | null;
+  if (!res.ok || !data?.url) throw new ApiError(data?.error ?? "사진을 올리지 못했어요", res.status);
+  return data.url;
+}
+
+/** 사진을 올리고 후보로 등록한다. 입력이 틀리면 업로드 전에 거절한다. */
 export async function createCandidate(file: File, fields: CandidateFields): Promise<AdminCandidate> {
   const parsed = parseCandidate(fields);
   if (!parsed.ok) throw new Error(parsed.error);
-  const small = await shrinkImage(file);
-  const blob = await upload(`candidates/${small.name}`, small, { access: "public", handleUploadUrl: "/api/admin/upload" });
-  return api<AdminCandidate>("/api/admin/candidates", { method: "POST", body: { ...parsed.value, imageUrl: blob.url } });
+  const imageUrl = await uploadPhoto(file);
+  return api<AdminCandidate>("/api/admin/candidates", { method: "POST", body: { ...parsed.value, imageUrl } });
 }
