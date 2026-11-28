@@ -23,8 +23,28 @@
   --font-sans: "Pretendard Variable", Pretendard, -apple-system, BlinkMacSystemFont, system-ui, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", sans-serif;
   --animate-pop: pop 0.3s ease-out;
   --animate-fade-in: fade-in 1.2s ease-out;
+  --animate-confetti: confetti 1.8s cubic-bezier(0.2, 0.7, 0.3, 1) both;
   --animate-marquee-left: marquee-left 160s linear infinite;
   --animate-marquee-right: marquee-right 160s linear infinite;
+}
+
+/* 이모지 컨페티: 바깥으로 튀어 나갔다가(60%) 아래로 떨어지며 사라진다. --dx/--dy/--rot 은 조각마다 다르다. */
+@keyframes confetti {
+  0% {
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+    transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1) rotate(calc(var(--rot) * 0.7));
+  }
+  100% {
+    opacity: 0;
+    transform: translate(calc(-50% + var(--dx) * 1.15), calc(-50% + var(--dy) + 90px)) scale(0.9) rotate(var(--rot));
+  }
 }
 
 @keyframes fade-in {

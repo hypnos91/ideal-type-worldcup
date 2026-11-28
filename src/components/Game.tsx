@@ -5,6 +5,7 @@ import type { GameView, PublicCandidate } from "@/lib/api-types";
 import { ApiError, api } from "@/lib/client-api";
 import { replay, roundLabel, summary, type CurrentMatch } from "@/lib/tournament";
 import { CandidateInfo, CandidatePhoto, FaceAvatar } from "./CandidateCard";
+import EmojiBurst from "./EmojiBurst";
 
 const PICK_DELAY_MS = 380;
 
@@ -235,12 +236,14 @@ function Result({
     // 우승 카드·결승 상대·우승까지의 길·버튼을 모두 같은 폭으로(2026-11-28 사용자 지시)
     <section className="flex w-full flex-col gap-5">
       <p className="text-center font-semibold text-accent">🏆 {game.size}강 최종 1인</p>
-      <div className="animate-pop w-full overflow-hidden rounded-3xl bg-white/[.06] shadow-xl ring-4 ring-accent">
-        <CandidatePhoto c={champion} className="aspect-[4/5] w-full" />
-        <div className="px-3 py-4">
-          <CandidateInfo c={champion} size="lg" />
+      <EmojiBurst>
+        <div className="animate-pop w-full overflow-hidden rounded-3xl bg-white/[.06] shadow-xl ring-4 ring-accent">
+          <CandidatePhoto c={champion} className="aspect-[4/5] w-full" />
+          <div className="px-3 py-4">
+            <CandidateInfo c={champion} size="lg" />
+          </div>
         </div>
-      </div>
+      </EmojiBurst>
 
       {second && (
         <div className="flex w-full items-center justify-between gap-3 rounded-xl bg-white/[.06] px-4 py-2.5 text-sm">
