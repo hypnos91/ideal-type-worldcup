@@ -4,7 +4,6 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { api } from "@/lib/client-api";
 import { parsePlayer } from "@/lib/validation";
-import PhotoBackdrop from "./PhotoBackdrop";
 
 export default function Entry() {
   const router = useRouter();
@@ -42,7 +41,6 @@ export default function Entry() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col justify-center px-4 py-10">
-      <PhotoBackdrop />
       <div className="animate-pop flex flex-col gap-7 rounded-3xl border border-white/10 bg-card/80 p-6 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-8">
         <h1 className="text-center text-3xl font-black sm:text-4xl">이상형 월드컵</h1>
         <form onSubmit={submit} className="flex flex-col gap-4" noValidate>

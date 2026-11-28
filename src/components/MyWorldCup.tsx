@@ -7,7 +7,6 @@ import { ApiError, api } from "@/lib/client-api";
 import { SIZES, replay, roundLabel } from "@/lib/tournament";
 import { CandidateInfo, CandidatePhoto } from "./CandidateCard";
 import Game from "./Game";
-import PhotoBackdrop from "./PhotoBackdrop";
 
 export default function MyWorldCup() {
   const router = useRouter();
@@ -201,8 +200,7 @@ export default function MyWorldCup() {
 /** 사진 배경 위의 카드 패널 */
 function Shell({ children }: { children: React.ReactNode }) {
   return (
-    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-4 py-6 sm:py-10">
-      <PhotoBackdrop />
+    <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col justify-center px-4 py-6 sm:py-10">
       <div className="animate-pop flex flex-col gap-6 rounded-3xl border border-white/10 bg-card/80 p-5 shadow-2xl shadow-black/50 backdrop-blur-xl sm:p-8">
         {children}
       </div>
